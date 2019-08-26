@@ -1,0 +1,10 @@
+{
+  "name": "hp1",
+  "batch_size": 4,
+  "epochs": 200,
+  "lr": 0.0002,
+  "weight_decay": 0,
+  "momentum": 0,
+  "b1": 0.5,
+  "b2": 0.999
+}

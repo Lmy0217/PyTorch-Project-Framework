@@ -1,0 +1,5 @@
+{
+  "name": "WGAN_GP",
+  "n_critic": 1,
+  "lambda_gp": 10
+}

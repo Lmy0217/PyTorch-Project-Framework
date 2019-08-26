@@ -1,0 +1,5 @@
+numpy
+scipy
+scikit-image
+h5py
+Pillow
