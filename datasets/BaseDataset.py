@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import numpy as np
 import math
+import os
 import configs
 import datasets
 
@@ -8,6 +9,7 @@ import datasets
 class BaseDataset(Dataset):
 
     def __init__(self, cfg, **kwargs):
+        self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]
         self.cfg = self.more(self._more(cfg))
         self.data, self.cfg.data_count = self._load()
         if self.cfg.norm:

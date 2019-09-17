@@ -29,7 +29,7 @@ class Main(object):
         self.dataset = datasets.find(self.dataset_cfg.name)(self.dataset_cfg)
 
     def _get_logger(self):
-        return utils.Logger(self.model.getpath(), self.model.cfg.name)
+        return utils.Logger(self.model.getpath(), self.model.name)
 
     def show_cfgs(self):
         self.logger.info(self.model.cfg)
@@ -51,23 +51,24 @@ class Main(object):
         self.reset()
 
     def train(self, epoch):
-        log_step = 1
-        count = 0
+        log_step, count = 1, 0
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
-            loss_dict = self.model.train(epoch, sample_dict)
+            loss_dict = self.model.train(batch_idx, sample_dict)
             count += len(list(sample_dict.values())[0])
             if batch_idx % log_step == 0:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
                 loss = list()
-                for name, value in loss_dict.items():
-                    msg += ' ' + name + ': {:.6f}'
-                    loss.append(value.item())
+                if loss_dict:
+                    for name, value in loss_dict.items():
+                        msg += ' ' + name + ': {:.6f}'
+                        loss.append(value.item())
                 self.logger.info(msg.format(epoch, count, len(self.train_loader.dataset),
                                             100. * count / len(self.train_loader.dataset), *loss))
-        if epoch % 10 == 0:
+        if epoch % self.run_cfg.save_step == 0:
             self.model.save(epoch)
 
     def test(self, epoch):
+        torch.cuda.empty_cache()
         predict = dict()
         log_step, count = 1, 0
         with torch.no_grad():
@@ -107,8 +108,7 @@ class Main(object):
                     predict[name] = self.dataset.renorm(predict[name], data_type, **other)
 
         if epoch % 1 == 0:
-            predict_file = os.path.join(self.model.getpath(), self.model.cfg.name + '_' + str(epoch)
-                                        + (('_' + str(self.msg)) if self.msg is not None else '')
+            predict_file = os.path.join(self.model.getpath(), self.model.name + '_' + str(epoch)
                                         + configs.env.paths.predict_file)
             if predict:
                 scipy.io.savemat(predict_file, predict)
@@ -134,7 +134,7 @@ if __name__ == '__main__':
         if args.test_epoch is None:
             for epoch in range(main.start_epoch + 1, main.run_cfg.epochs + 1):
                 main.train(epoch)
-                if epoch % 10 == 0:
+                if epoch % main.run_cfg.save_step == 0:
                     main.test(epoch)
         else:
             main.test(main.start_epoch)

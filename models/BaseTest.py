@@ -13,12 +13,14 @@ class BaseTest(object):
     def run(self):
         for model_cfg in models.allcfgs():
             if hasattr(model_cfg, 'name') and model_cfg.name == self.model.__name__:
-                print('Testing model: ' + self.model.__name__ + ' ...')
+                model_name = os.path.splitext(os.path.split(model_cfg._path)[1])[0]
+                print('Testing model: ' + model_name + ' ...')
                 for data_cfg in datasets.allcfgs():
                     if not self.model.check_cfg(data_cfg, model_cfg):
                         continue
+                    data_name = os.path.splitext(os.path.split(data_cfg._path)[1])[0]
+                    print('\tTesting dataset: ' + data_name + ' ...')
                     data_cfg.index_cross = 1
-                    print('\tTesting dataset: ' + data_cfg.name + ' ...')
                     sample_dict = dict()
                     for name, value in vars(data_cfg).items():
                         if name.startswith('source') or name.startswith('target'):
@@ -36,14 +38,18 @@ class BaseTest(object):
                             print(sample_dict[name].size())
 
                     for run_cfg in configs.Run.all():
-                        print('\t\tTesting config: ' + run_cfg.name + ' ...')
+                        run_name = os.path.splitext(os.path.split(run_cfg._path)[1])[0]
+                        print('\t\tTesting config: ' + run_name + ' ...')
                         model = self.model(model_cfg, data_cfg, run_cfg)
 
-                        params = dict()
+                        params, params_all = dict(), 0
                         for name, value in model.modules().items():
                             params[name] = sum(p.numel() for p in value.parameters() if p.requires_grad)
+                            params_all += params[name]
                         print("\t\t-- parameter(s): ", end="")
                         print(params)
+                        print("\t\t-- all parameters: ", end="")
+                        print(params_all)
 
                         loss_dict = model.train(0, sample_dict)
                         print("\t\t-- loss(es): ", end="")
@@ -58,9 +64,7 @@ class BaseTest(object):
                         print("\t\t-- save folder: ", end="")
                         print(model.getpath())
 
-                        save_folder = os.path.join("test", self.model.__name__,
-                                                   os.path.splitext(os.path.split(data_cfg._path)[1])[0] + '-' +
-                                                   os.path.splitext(os.path.split(run_cfg._path)[1])[0])
+                        save_folder = os.path.join("test", model_name, data_name + '-' + run_name)
                         model.save(epoch=0, path=save_folder)
                         model.load(path=save_folder)
         print('')
