@@ -11,7 +11,7 @@ class BaseConfig(object):
         return not (value.startswith('_') or value == 'name')
 
     def dict(self):
-        value_dict = vars(self)
+        value_dict = dict(vars(self))
         for _value in list(value_dict.keys()):
             if not self._values(_value):
                 value_dict.pop(_value, None)
