@@ -57,7 +57,8 @@ class BaseModel(object):
             v = self.__dict__.items()
             for name, value in v:
                 if value.__class__.__base__ == nn.Module:
-                    self.__dict__[name].load_state_dict(torch.load(os.path.join(path, self.name + '_' + str(start_epoch) + msg + '.pth')))
+                    self.__dict__[name].load_state_dict(torch.load(
+                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth')))
         return start_epoch
 
     def save(self, epoch, path=None, msg=None):
@@ -69,7 +70,8 @@ class BaseModel(object):
         for name, value in v:
             # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
             if value.__class__.__base__ == nn.Module:
-                torch.save(value.state_dict(), os.path.join(path, self.name + '_' + str(epoch) + msg + '.pth'))
+                torch.save(value.state_dict(),
+                           os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
         torch.save(epoch, os.path.join(path, self.name + msg + configs.env.paths.check_file))
 
 
