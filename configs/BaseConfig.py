@@ -21,7 +21,11 @@ class BaseConfig(object):
         if isinstance(other, self.__class__):
             flag = True
             for name, value in vars(self).items():
-                flag &= (value == getattr(other, name))
+                # TODO test
+                try:
+                    flag &= (value == getattr(other, name))
+                except AttributeError:
+                    return False
             return flag
         else:
             return False
