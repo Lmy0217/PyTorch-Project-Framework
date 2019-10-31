@@ -11,6 +11,6 @@ def all(config, cfg_dir):
     if not os.path.exists(cfg_dir):
         os.makedirs(cfg_dir)
     cfg_list = list()
-    for file in os.listdir(cfg_dir):
+    for file in sorted(os.listdir(cfg_dir)):
         cfg_list.append(config(os.path.join(cfg_dir, file)))
     return cfg_list
