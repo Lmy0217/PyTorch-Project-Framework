@@ -184,20 +184,26 @@ class BaseSplit(Dataset):
 
     def __init__(self, dataset, index_range_set):
         self.dataset = dataset
-        self.indexset = self._index(index_range_set)
+        self.indexset, self.lengthset, self.offset = self._index(index_range_set)
         self.count = len(self.indexset)
+        self.raw_count = self.count // self.dataset.cfg.out.elements
 
     def _index(self, index_range_set):
-        indexset = list()
+        indexset, lengthset, offset, off = list(), list(), list(), 0
         for index_range in index_range_set:
             indexset.extend(range(index_range[0], index_range[1]))
-        return indexset
+            lengthset.append(index_range[1])
+            off_0 = self.dataset._recover(index_range[0])[0][0]
+            off_1 = self.dataset._recover(index_range[1])[0][0]
+            offset.append(off - off_0)
+            off += off_1 - off_0
+        return indexset, lengthset, offset
 
     def recover(self, index):
         index_dict = self.dataset.recover(self.indexset[index])
         for name, value in index_dict.items():
             index_dict[name] = list(value)
-            index_dict[name][0] = index
+            index_dict[name][0] += self.offset[[length > index for length in self.lengthset].index(True)]
             index_dict[name] = tuple(index_dict[name])
         return index_dict
 

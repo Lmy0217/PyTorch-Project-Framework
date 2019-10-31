@@ -85,7 +85,7 @@ class Main(object):
                         if data_cfg is not None:
                             predict_shape = (data_cfg.time, data_cfg.width, data_cfg.height) \
                                 if data_cfg.elements > 1 else [1]
-                            predict[name] = torch.zeros(self.testset.count, *predict_shape)
+                            predict[name] = torch.zeros(self.testset.raw_count, *predict_shape)
                         else:
                             predict[name] = torch.Tensor().to(value.device)
                 for name, value in output_dict.items():
