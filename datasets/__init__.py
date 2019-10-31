@@ -3,8 +3,8 @@ from .BaseTest import *
 
 
 def more(cfg):
-    dataset = getattr(datasets, cfg.name)
-    return dataset.more(dataset._more(cfg))
+    dataset = getattr(datasets, cfg.name, None)
+    return dataset.more(dataset._more(cfg)) if dataset else cfg
 
 
 def allcfgs():
