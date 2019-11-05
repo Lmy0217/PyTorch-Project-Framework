@@ -80,14 +80,16 @@ Here's how to use this framework, you should do the following:
 
 - Dataset
 	- In `datasets` folder create a class that inherit the "BaseDataset" class
+
 		```python
 	    # YourDataset.py
 		class YourDataset(datasets.BaseDataset):
 		    def __init__(self, cfg, **kwargs):
 		    super(YourDataset, self).__init__(cfg, **kwargs)
-		
 		```
+
 	- Override `_load` method to load dataset
+
 		```python
 	    # In YourDataset class
 		def _load(self):
@@ -105,13 +107,16 @@ Here's how to use this framework, you should do the following:
 	        target = np.random.randint(0, self.cfg.label_count, (data_count, 1))
 
 	        return {'source': source, 'target': target}, data_count
-		
 		```
+
 	- Add your dataset name to `datasets/__init__.py`
+
 	    ```python
 	    from .YourDataset import YourDataset
 	    ```
+
 	- Create json file of your dataset's configuration in `res/datasets/`
+
 	    ```
 	    {
 	        "name": "YourDataset", // same with your dataset class name
@@ -128,6 +133,7 @@ Here's how to use this framework, you should do the following:
 
 - Model
 	- In `models` folder create a class that inherit the "BaseModel" class
+
 		```python
 	    # YourModel.py
 		class YourModel(models.BaseModels):
@@ -147,7 +153,9 @@ Here's how to use this framework, you should do the following:
             self.criterion = nn.L1Loss.to(self.device)
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
         ```
+
     - Override two methods `train` and `test` to write the logic of the training and testing process
+
         ```python
         # In YourDataset class
         def train(self, batch_idx, sample_dict):
@@ -194,11 +202,15 @@ Here's how to use this framework, you should do the following:
 
             return {'target': target, 'predict': predict}
         ```
+
 	- Add your model name to `models/__init__.py`
+
 	    ```python
 	    from .YourModel import YourModel
 	    ```
+
 	- Create json file of your model's configuration in `res/models/`
+
 	    ```
 	    {
 	        "name": "YourModel", // same with your model class name
@@ -211,6 +223,7 @@ Here's how to use this framework, you should do the following:
 
 - Hyperparameter
     - Create json file of your hyperparameter's configuration in `res/run/`
+
 	    ```
 	    {
 	        "name": "hp1",
@@ -226,12 +239,15 @@ Here's how to use this framework, you should do the following:
 
 - Run `main.py` to start training or testing
     - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json`
+
 	    ```bash
 	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/hp.json"
 	    ```
+
     Every `save_step` epoch trained model and data which want to saved will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
 
     - If you want to testing epoch 10
+
 	    ```bash
 	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/hp.json" --test_epoch 10
 	    ```
