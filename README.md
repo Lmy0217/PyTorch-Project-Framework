@@ -83,7 +83,7 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
 Here's how to use this framework, you should do the following:
 
 - Dataset
-	- In `datasets` folder create a class that inherit the "BaseDataset" class
+	- In `datasets` folder create a class that inherit the `BaseDataset` class
 
 		```python
 	    # YourDataset.py
@@ -136,7 +136,7 @@ Here's how to use this framework, you should do the following:
         ```
 
 - Model
-	- In `models` folder create a class that inherit the "BaseModel" class
+	- In `models` folder create a class that inherit the `BaseModel` class
 
 		```python
 	    # YourModel.py
