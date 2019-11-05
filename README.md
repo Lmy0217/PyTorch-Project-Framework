@@ -41,7 +41,8 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
 
 ### Datasets
 - Base dataset
-Base dataset is an abstract class that must be Inherited by any dataset you create, the idea behind this is that there's much shared stuff between all datasets. The base dataset mainly contains:
+
+    Base dataset is an abstract class that must be Inherited by any dataset you create, the idea behind this is that there's much shared stuff between all datasets. The base dataset mainly contains:
   - `more`  - add / update unique configuration to dataset
   - `_load`  - load dataset
   - `_recover`  - split single data
@@ -49,7 +50,8 @@ Base dataset is an abstract class that must be Inherited by any dataset you crea
 
 
 - Your dataset
-Here's where you implement your dataset. So you should:
+
+    Here's where you implement your dataset. So you should:
   - Create your dataset class and inherit the `BaseDataset` class
   - Override `_load` method
   - Override other methods if your need special implementation
@@ -58,7 +60,8 @@ Here's where you implement your dataset. So you should:
 
 ### Models
 - Base model
-Base model is an abstract class that must be Inherited by any model you create, the idea behind this is that there's much shared stuff between all models. The base model mainly contains:
+
+    Base model is an abstract class that must be Inherited by any model you create, the idea behind this is that there's much shared stuff between all models. The base model mainly contains:
   - `check_cfg`  - filter data set
   - `train`  - train step
   - `test`  - test step
@@ -67,7 +70,8 @@ Base model is an abstract class that must be Inherited by any model you create, 
 
 
 - Your model
-Here's where you implement your model. So you should:
+
+    Here's where you implement your model. So you should:
   - Create your model class and inherit the `BaseModel` class
   - Override `train` / `test` method
   - Override other methods if your need special implementation
