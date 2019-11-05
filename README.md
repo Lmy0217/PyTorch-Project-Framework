@@ -112,7 +112,7 @@ Here's how to use this framework, you should do the following:
 	    from .YourDataset import YourDataset
 	    ```
 	- Create json file of your dataset's configuration in `res/datasets/`
-	    ```json
+	    ```
 	    {
 	        "name": "YourDataset", // same with your dataset class name
 	        // All dataset parameter your need where create `YourDataset` class
@@ -199,7 +199,7 @@ Here's how to use this framework, you should do the following:
 	    from .YourModel import YourModel
 	    ```
 	- Create json file of your model's configuration in `res/models/`
-	    ```json
+	    ```
 	    {
 	        "name": "YourModel", // same with your model class name
 	        // All model parameter your need where create `YourModel` class
@@ -211,7 +211,7 @@ Here's how to use this framework, you should do the following:
 
 - Hyperparameter
     - Create json file of your hyperparameter's configuration in `res/run/`
-	    ```json
+	    ```
 	    {
 	        "name": "hp1",
             // Basic hyperparameter
