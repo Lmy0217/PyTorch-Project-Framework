@@ -10,7 +10,7 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
   |    ├── BaseConfig.py  - the loader of all configuration file
   |    ├── BaseTest.py  - the test class of all configuration file
   |    ├── Env.py  - the loader of environmental configuration file
-  |    └── Run  - the loader of hyperparameter configuration file
+  |    └── Run.py  - the loader of hyperparameter configuration file
   |
   ├── datasets
   |    ├── BaseDataset.py  - the abstract class of all dataset
