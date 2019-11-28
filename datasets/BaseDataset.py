@@ -12,9 +12,6 @@ class BaseDataset(Dataset):
         self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]
         self.cfg = self.more(self._more(cfg))
         self.data, self.cfg.data_count = self._load()
-        if self.cfg.norm:
-            self.ms = self._ms()
-            self._norm()
 
     @staticmethod
     def _more(cfg):
@@ -64,13 +61,12 @@ class BaseDataset(Dataset):
             eles *= n
         return eles > 1
 
-    # TODO ms all data?
-    def _ms(self):
+    def _ms(self, norm_set):
         ms_dict = dict()
         for name, data in self.data.items():
             if self.need_norm(data.shape):
-                ms_dict[name] = [np.mean(data, (0, *tuple(range(2, data.ndim)))),
-                                 np.std(data, (0, *tuple(range(2, data.ndim))))]
+                ms_dict[name] = [np.mean(data[norm_set], (0, *tuple(range(2, data.ndim)))),
+                                 np.std(data[norm_set], (0, *tuple(range(2, data.ndim))))]
         return ms_dict
 
     def _norm(self):
@@ -79,6 +75,11 @@ class BaseDataset(Dataset):
             norm_func()
         else:
             raise NotImplementedError
+
+    def _renorm(self):
+        for name, value in self.data.items():
+            if self.need_norm(value.shape):
+                self.data[name] = self.renorm(value, name)
 
     def renorm(self, data, name, **kwargs):
         renorm_func = getattr(self, '_renorm_' + self.cfg.norm, None)
@@ -91,14 +92,14 @@ class BaseDataset(Dataset):
     def _norm_3(self):
         for name, value in self.data.items():
             if self.need_norm(value.shape):
-                ms = self.ms.get(name)
+                ms = self.ms[-1].get(name)
                 self.data[name] = \
                     (self.data[name] - np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (value.ndim - 2))))) / \
                     np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (value.ndim - 2)))) / 3
 
     def _renorm_3(self, data, name, ms_slice=None):
         if self.need_norm(data.shape):
-            ms = self.ms.get(name)
+            ms = self.ms[-1].get(name)
             if ms_slice is not None:
                 ms = (ms[0][ms_slice], ms[1][ms_slice])
             if ms is not None:
@@ -169,14 +170,36 @@ class BaseDataset(Dataset):
         adding_count = math.floor((index_cross - 1) * adding_step)
         fold_start = (index_cross - 1) * fold_length + adding_count
         fold_length += math.floor(index_cross * adding_step) - adding_count
-        return fold_start * (elements_per_data or self.cfg.out.elements), \
-               fold_length * (elements_per_data or self.cfg.out.elements)
+
+        index_start = fold_start * (elements_per_data or self.cfg.out.elements)
+        index_length = fold_length * (elements_per_data or self.cfg.out.elements)
+        index_range_trainset = [[0, index_start], [index_start + index_length, len(self)]]
+        index_range_testset = [[index_start, index_start + index_length]]
+
+        norm_start = fold_start * (elements_per_data or 1)
+        norm_length = fold_length * (elements_per_data or 1)
+        norm_range = [[0, norm_start], [norm_start + norm_length, self.cfg.data_count]]
+
+        return index_range_trainset, index_range_testset, norm_range, \
+               [index_start, index_length, norm_start, norm_length]
+
+    # TODO need more test
+    def _reset_norm(self, norm_range):
+        if self.cfg.norm:
+            norm_set = list()
+            for nr in norm_range:
+                norm_set.extend(range(nr[0], nr[1]))
+            if not hasattr(self, 'ms'):
+                self.ms = list()
+            else:
+                self._renorm()
+            self.ms.append(self._ms(norm_set))
+            self._norm()
 
     def split(self, index_cross):
         self.cfg.index_cross = index_cross
-        index_start, index_length = self._cross(index_cross)
-        index_range_trainset = [[0, index_start], [index_start + index_length, len(self)]]
-        index_range_testset = [[index_start, index_start + index_length]]
+        index_range_trainset, index_range_testset, norm_range, _ = self._cross(index_cross)
+        self._reset_norm(norm_range)
         return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_testset)
 
 
