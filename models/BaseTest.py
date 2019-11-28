@@ -55,6 +55,7 @@ class BaseTest(object):
                         print("\t\t-- loss(es): ", end="")
                         print(loss_dict)
 
+                        torch.cuda.empty_cache()
                         result_dict = model.test(0, sample_dict)
                         for name, value in result_dict.items():
                             result_dict[name] = value.shape
