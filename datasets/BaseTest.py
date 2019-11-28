@@ -1,4 +1,5 @@
 import datasets
+import os
 
 
 class BaseTest(object):
@@ -9,7 +10,8 @@ class BaseTest(object):
     def run(self):
         for dataset_cfg in datasets.allcfgs():
             if hasattr(dataset_cfg, 'name') and dataset_cfg.name == self.dataset.__name__:
-                print('Testing dataset: ' + self.dataset.__name__ + ' ...')
+                dataset_name = os.path.splitext(os.path.split(dataset_cfg._path)[1])[0]
+                print('Testing dataset: ' + dataset_name + ' ...')
                 dataset = self.dataset(dataset_cfg)
                 trainset, testset = dataset.split(
                     index_cross=min(dataset.cfg.cross_folder, 1) if hasattr(dataset.cfg, 'cross_folder') else None)
