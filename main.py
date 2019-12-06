@@ -40,6 +40,7 @@ class Main(object):
         self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg)
         self.start_epoch = self.model.load(self.args.test_epoch)
         self.logger = self._get_logger()
+        self.dataset.set_logger(self.logger)
         self.show_cfgs()
 
     def split(self, index_cross):
