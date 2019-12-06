@@ -1,0 +1,15 @@
+{
+  "name": "MNIST",
+  "path": "../../datasets/MNIST/",
+  "source": {
+    "width": 28,
+    "height": 28,
+    "time": 1,
+    "lower": 0,
+    "upper": 255
+  },
+  "target": {
+    "elements": 1,
+    "classes": 10
+  }
+}

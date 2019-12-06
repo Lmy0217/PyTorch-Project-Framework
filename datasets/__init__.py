@@ -1,6 +1,8 @@
 from .BaseDataset import *
 from .BaseTest import *
 
+from .MNIST import MNIST
+
 
 def more(cfg):
     dataset = getattr(datasets, cfg.name, None)
