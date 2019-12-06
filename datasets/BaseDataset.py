@@ -54,6 +54,10 @@ class BaseDataset(Dataset):
             path_dict[name] = ''.join(l)
         return path_dict
 
+    # TODO remove to init
+    def set_logger(self, logger):
+        self.logger = logger
+
     @staticmethod
     def need_norm(data_shape):
         eles = 1
@@ -61,12 +65,21 @@ class BaseDataset(Dataset):
             eles *= n
         return eles > 1
 
-    def _ms(self, norm_set):
+    # TODO need more test
+    def _ms(self, norm_set=None, split_items=None):
+        assert norm_set or split_items or isinstance(split_items, dict)
         ms_dict = dict()
-        for name, data in self.data.items():
+        ms_items = split_items[0] if split_items is not None else self.data.keys()
+        for idx, name in enumerate(ms_items):
+            data = self.data[name]
             if self.need_norm(data.shape):
-                ms_dict[name] = [np.mean(data[norm_set], (0, *tuple(range(2, data.ndim)))),
-                                 np.std(data[norm_set], (0, *tuple(range(2, data.ndim))))]
+                if norm_set is not None:
+                    data = data[norm_set]
+                ms_dict[name] = [np.mean(data, (0, *tuple(range(2, data.ndim)))),
+                                 np.std(data, (0, *tuple(range(2, data.ndim))))]
+                if split_items is not None:
+                    ms_dict[split_items[1][idx]] = ms_dict[name]
+        self.logger.info(ms_dict)
         return ms_dict
 
     def _norm(self):
@@ -184,22 +197,24 @@ class BaseDataset(Dataset):
                [index_start, index_length, norm_start, norm_length]
 
     # TODO need more test
-    def _reset_norm(self, norm_range):
+    def _reset_norm(self, norm_range=None, split_items=None):
         if self.cfg.norm:
-            norm_set = list()
-            for nr in norm_range:
-                norm_set.extend(range(nr[0], nr[1]))
+            norm_set = None
+            if norm_range is not None:
+                norm_set = list()
+                for nr in norm_range:
+                    norm_set.extend(range(nr[0], nr[1]))
             if not hasattr(self, 'ms'):
                 self.ms = list()
             else:
                 self._renorm()
-            self.ms.append(self._ms(norm_set))
+            self.ms.append(self._ms(norm_set, split_items))
             self._norm()
 
     def split(self, index_cross):
         self.cfg.index_cross = index_cross
         index_range_trainset, index_range_testset, norm_range, _ = self._cross(index_cross)
-        self._reset_norm(norm_range)
+        self._reset_norm(norm_range=norm_range)
         return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_testset)
 
 
