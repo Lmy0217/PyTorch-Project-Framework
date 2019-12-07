@@ -1,4 +1,6 @@
 import configs
+import utils
+import os
 
 
 class BaseTest(object):
@@ -8,8 +10,11 @@ class BaseTest(object):
 
     def run(self):
         for p in self.path:
+            name = os.path.splitext(os.path.split(p)[1])[0]
+            logger = utils.Logger('../configs/test', name)
             if isinstance(p, str) or isinstance(p, dict):
-                print("Testing " + str(p) + " ...")
-                print(configs.BaseConfig(p))
+                logger.info("Testing " + str(p) + " ...")
+                logger.info(configs.BaseConfig(p))
+                logger.info("Testing " + str(p) + " completed.")
             else:
                 raise TypeError

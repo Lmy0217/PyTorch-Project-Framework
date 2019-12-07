@@ -1,4 +1,5 @@
 import datasets
+import utils
 import os
 
 
@@ -11,22 +12,22 @@ class BaseTest(object):
         for dataset_cfg in datasets.allcfgs():
             if hasattr(dataset_cfg, 'name') and dataset_cfg.name == self.dataset.__name__:
                 dataset_name = os.path.splitext(os.path.split(dataset_cfg._path)[1])[0]
-                print('Testing dataset: ' + dataset_name + ' ...')
+                logger = utils.Logger('test', dataset_name)
+                logger.info('Testing dataset: ' + dataset_name + ' ...')
                 dataset = self.dataset(dataset_cfg)
+                dataset.set_logger(logger)
                 trainset, testset = dataset.split(
                     index_cross=min(dataset.cfg.cross_folder, 1) if hasattr(dataset.cfg, 'cross_folder') else None)
 
                 for splitset, set_name in zip([trainset, testset], ['Trainset', 'Testset']):
-                    print("-- " + set_name + " size: " + str(len(splitset)))
+                    logger.info("-- " + set_name + " size: " + str(len(splitset)))
                     for i in range(len(splitset)):
-                        print("  -- The " + str(i + 1) + "-th sample:", end="")
+                        sample_info = "  -- The " + str(i + 1) + "-th sample:"
                         sample_dict, index = splitset[i]
                         for name, value in sample_dict.items():
                             if (hasattr(value, 'ndim') and value.ndim > 1) or value.shape[0] > 1:
-                                print(" " + name + " size: ", end="")
-                                print(value.shape, end="")
+                                sample_info += " " + name + " size: " + str(value.shape)
                             else:
-                                print(" " + name + " : ", end="")
-                                print(value, end="")
-                        print('')
-                print('')
+                                sample_info += " " + name + " : " + str(value)
+                        logger.info(sample_info)
+                logger.info('Testing dataset: ' + dataset_name + ' completed.')
