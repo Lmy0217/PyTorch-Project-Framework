@@ -57,6 +57,8 @@ class BaseDataset(Dataset):
     # TODO remove to init
     def set_logger(self, logger):
         self.logger = logger
+        if hasattr(self, 'super_dataset') and isinstance(self.super_dataset, BaseDataset):
+            self.super_dataset.set_logger(logger)
 
     @staticmethod
     def need_norm(data_shape):
@@ -225,6 +227,7 @@ class BaseSplit(Dataset):
         self.indexset, self.lengthset, self.offset = self._index(index_range_set)
         self.count = len(self.indexset)
         self.raw_count = self.count // self.dataset.cfg.out.elements
+        self.set_logger(self.dataset.logger)
 
     def _index(self, index_range_set):
         indexset, lengthset, offset, off = list(), list(), list(), 0
@@ -251,6 +254,8 @@ class BaseSplit(Dataset):
     def __len__(self):
         return len(self.indexset)
 
+    def set_logger(self, logger):
+        self.logger = logger
 
 if __name__ == "__main__":
     print(datasets.all())
