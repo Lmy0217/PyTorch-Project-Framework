@@ -1,6 +1,6 @@
 {
   "name": "MNIST",
-  "path": "../../datasets/MNIST/",
+  "path": "./data/MNIST/",
   "source": {
     "width": 28,
     "height": 28,
