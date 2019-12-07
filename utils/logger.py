@@ -15,33 +15,31 @@ class Logger(object):
     def _mkfile(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        open(self.logging_file, 'w+') if platform.system() == 'Windows' else \
+        open(self.logging_file, 'a') if platform.system() == 'Windows' else \
             (not os.path.exists(self.logging_file) and os.mknod(self.logging_file))
 
     def _setlogger(self):
-        # TODO TEST close logging file
-        global logger
-        if 'logger' not in globals():
-            logger = logging.getLogger()
+        global _logger
+        if '_logger' not in globals():
+            _logger = logging.getLogger()
         else:
-            for handler in logger.handlers:
-                # handler.close()
-                logger.removeHandler(handler)
+            for idx in reversed(range(len(_logger.handlers))):
+                _logger.handlers[idx].close()
+                _logger.removeHandler(_logger.handlers[idx])
 
-        # logger = logging.getLogger(self.logging_file)
-        logger.setLevel(level=logging.INFO)
+        _logger.setLevel(level=logging.INFO)
         formatter = logging.Formatter('%(asctime)s :  %(message)s')
 
         handler = logging.FileHandler(self.logging_file)
         handler.setLevel(logging.INFO)
         handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        _logger.addHandler(handler)
         console = logging.StreamHandler()
         console.setLevel(logging.INFO)
         console.setFormatter(formatter)
-        logger.addHandler(console)
+        _logger.addHandler(console)
 
-        return logger
+        return _logger
 
     def info(self, msg):
         self.logger.info(msg)
