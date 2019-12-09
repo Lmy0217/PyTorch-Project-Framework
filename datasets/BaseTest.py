@@ -1,6 +1,7 @@
 import datasets
 import utils
 import os
+import numpy as np
 
 
 class BaseTest(object):
@@ -21,6 +22,7 @@ class BaseTest(object):
 
                 for splitset, set_name in zip([trainset, testset], ['Trainset', 'Testset']):
                     logger.info("-- " + set_name + " size: " + str(len(splitset)))
+                    log_step = int(np.power(10, np.floor(np.log10(len(splitset) / 100))))
                     for i in range(len(splitset)):
                         sample_info = "  -- The " + str(i + 1) + "-th sample:"
                         sample_dict, index = splitset[i]
@@ -29,5 +31,6 @@ class BaseTest(object):
                                 sample_info += " " + name + " size: " + str(value.shape)
                             else:
                                 sample_info += " " + name + " : " + str(value)
-                        logger.info(sample_info)
+                        if (i + 1) % log_step == 0 or i == len(splitset) - 1:
+                            logger.info(sample_info)
                 logger.info('Testing dataset: ' + dataset_name + ' completed.')
