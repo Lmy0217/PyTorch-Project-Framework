@@ -245,7 +245,7 @@ Here's how to use this framework, you should do the following:
     - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json`
 
 	    ```bash
-	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/hp.json"
+	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/yourhp.json"
 	    ```
 
     Every `save_step` epoch trained model and data which want to saved will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
@@ -253,7 +253,7 @@ Here's how to use this framework, you should do the following:
     - If you want to testing epoch 10
 
 	    ```bash
-	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/hp.json" --test_epoch 10
+	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/yourhp.json" --test_epoch 10
 	    ```
 
 ## Contributing
