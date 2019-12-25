@@ -24,32 +24,31 @@ class Main(object):
 
     def _init(self):
         torch.manual_seed(int(time.time()))
+        configs.env.ci.run = self.args.ci
 
     def _get_component(self):
         self.dataset = datasets.find(self.dataset_cfg.name)(self.dataset_cfg)
 
-    def _get_logger(self):
-        return utils.Logger(self.model.getpath(), self.model.name)
+    def _set_logger(self):
+        self.logger = utils.Logger(self.model.getpath(), self.model.name)
+        self.dataset.set_logger(self.logger)
 
     def show_cfgs(self):
         self.logger.info(self.model.cfg)
         self.logger.info(self.run_cfg)
         self.logger.info(self.dataset.cfg)
 
-    def reset(self):
+    def split(self, index_cross):
         self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg)
         self.start_epoch = self.model.load(self.args.test_epoch)
-        self.logger = self._get_logger()
-        self.dataset.set_logger(self.logger)
-        self.show_cfgs()
+        self._set_logger()
 
-    def split(self, index_cross):
         self.trainset, self.testset = self.dataset.split(index_cross)
         self.train_loader = DataLoader(self.trainset, batch_size=self.run_cfg.batch_size, shuffle=True,
                                        num_workers=8, pin_memory=True) if len(self.trainset) > 0 else list()
         self.test_loader = DataLoader(self.testset, batch_size=self.run_cfg.batch_size, shuffle=False,
                                       num_workers=8, pin_memory=True) if len(self.testset) > 0 else list()
-        self.reset()
+        self.show_cfgs()
 
     def train(self, epoch):
         log_step, count = 1, 0
