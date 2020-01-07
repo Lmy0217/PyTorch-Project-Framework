@@ -41,7 +41,11 @@ class BaseTest(object):
                     for run_cfg in configs.Run.all():
                         run_name = os.path.splitext(os.path.split(run_cfg._path)[1])[0]
                         logger.info('\t\tTesting config: ' + run_name + ' ...')
-                        model = self.model(model_cfg, data_cfg, run_cfg)
+
+                        save_folder = os.path.join("test", model_name, data_name + '-' + run_name)
+                        summary = utils.Summary(save_folder)
+
+                        model = self.model(model_cfg, data_cfg, run_cfg, summary=summary)
 
                         params, params_all = dict(), 0
                         for name, value in model.modules().items():
@@ -50,7 +54,9 @@ class BaseTest(object):
                         logger.info("\t\t-- parameter(s): " + str(params))
                         logger.info("\t\t-- all parameters: " + str(params_all))
 
-                        loss_dict = model.train(0, sample_dict)
+                        epoch_info = {'epoch': 1, 'batch_idx': 0, 'batch_per_epoch': 1,
+                                      'count_data': configs.env.ci.batchsize}
+                        loss_dict = model.train(epoch_info, sample_dict)
                         logger.info("\t\t-- loss(es): " + str(loss_dict))
 
                         torch.cuda.empty_cache()
@@ -58,9 +64,9 @@ class BaseTest(object):
                         for name, value in result_dict.items():
                             result_dict[name] = value.shape
                         logger.info("\t\t-- result(s) size: " + str(result_dict))
-                        logger.info("\t\t-- save folder: " + str(model.getpath()))
 
-                        save_folder = os.path.join("test", model_name, data_name + '-' + run_name)
+                        logger.info("\t\t-- save folder: " + str(utils.path.get_path(model_cfg, data_cfg, run_cfg)))
+
                         model.save(epoch=0, path=save_folder)
                         model.load(path=save_folder)
                         logger.info('\t\tTesting config: ' + run_name + ' completed.')

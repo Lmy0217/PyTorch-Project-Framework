@@ -2,4 +2,5 @@ numpy
 scipy
 scikit-image
 h5py
-Pillow
+Pillow<7.0.0
+tensorboard
