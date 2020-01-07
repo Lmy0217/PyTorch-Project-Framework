@@ -9,6 +9,7 @@ import configs
 import datasets
 import models
 import utils
+import platform
 
 
 class Main(object):
@@ -29,31 +30,41 @@ class Main(object):
     def _get_component(self):
         self.dataset = datasets.find(self.dataset_cfg.name)(self.dataset_cfg)
 
-    def _set_logger(self):
-        self.logger = utils.Logger(self.model.getpath(), self.model.name)
-        self.dataset.set_logger(self.logger)
-
     def show_cfgs(self):
         self.logger.info(self.model.cfg)
         self.logger.info(self.run_cfg)
         self.logger.info(self.dataset.cfg)
 
     def split(self, index_cross):
-        self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg)
-        self.start_epoch = self.model.load(self.args.test_epoch)
-        self._set_logger()
+        self.dataset_cfg.index_cross = index_cross
+        self.path = utils.path.get_path(self.model_cfg, self.dataset_cfg, self.run_cfg)
+
+		self.logger = utils.Logger(self.path, self.model.name)
+		self.dataset.set_logger(self.logger)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
         self.train_loader = DataLoader(self.trainset, batch_size=self.run_cfg.batch_size, shuffle=True,
-                                       num_workers=8, pin_memory=True) if len(self.trainset) > 0 else list()
+                                       num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
+            if len(self.trainset) > 0 else list()
         self.test_loader = DataLoader(self.testset, batch_size=self.run_cfg.batch_size, shuffle=False,
-                                      num_workers=8, pin_memory=True) if len(self.testset) > 0 else list()
+                                       num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
+            if len(self.testset) > 0 else list()
+
+        self.summary = utils.Summary(self.path, dataset=self.dataset)
+
+        self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
+                                                      summary=self.summary)
+        self.start_epoch = self.model.load(self.args.test_epoch)
+
         self.show_cfgs()
 
     def train(self, epoch):
         log_step, count = 1, 0
+        batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
+        epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
-            loss_dict = self.model.train(batch_idx, sample_dict)
+            epoch_info['batch_idx'] = batch_idx
+            loss_dict = self.model.train(epoch_info, sample_dict)
             count += len(list(sample_dict.values())[0])
             if batch_idx % log_step == 0:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
@@ -62,8 +73,7 @@ class Main(object):
                     for name, value in loss_dict.items():
                         msg += ' ' + name + ': {:.6f}'
                         loss.append(value.item())
-                self.logger.info(msg.format(epoch, count, len(self.train_loader.dataset),
-                                            100. * count / len(self.train_loader.dataset), *loss))
+                self.logger.info(msg.format(epoch, count, count_data, 100. * count / count_data, *loss))
         if epoch % self.run_cfg.save_step == 0:
             self.model.save(epoch)
 
@@ -96,7 +106,8 @@ class Main(object):
                             slice_recover = self.testset.recover(index[i])[data_type]
                             predict[name][slice_recover] = value[i]
                     else:
-                        predict[name] = torch.cat((predict[name], value))
+                        predict[name] = torch.cat((predict[name], value.float()
+                            if value.shape else torch.tensor([value], dtype=torch.float).to(value.device)))
 
         for name, value in predict.items():
             predict[name] = np.array(value.cpu())
@@ -108,7 +119,7 @@ class Main(object):
                     predict[name] = self.dataset.renorm(predict[name], data_type, **other)
 
         if epoch % 1 == 0:
-            predict_file = os.path.join(self.model.getpath(), self.model.name + '_' + str(epoch)
+            predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
                                         + configs.env.paths.predict_file)
             if predict:
                 scipy.io.savemat(predict_file, predict)
