@@ -3,6 +3,7 @@ import torch
 import os
 import configs
 import models
+import utils
 
 
 class BaseModel(object):
@@ -12,7 +13,11 @@ class BaseModel(object):
         self.cfg = cfg
         self.data_cfg = data_cfg
         self.run = run
+        self.path = utils.path.get_path(cfg, data_cfg, run)
         self.device = torch.device("cuda" if self.run.cuda else "cpu")
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     @staticmethod
     def check_cfg(data_cfg, cfg):
@@ -32,21 +37,23 @@ class BaseModel(object):
                 m[name] = value
         return m
 
-    def train(self, batch_idx, sample_dict):
+    def train(self, epoch_info, sample_dict):
         return NotImplementedError
 
     def test(self, batch_idx, sample_dict):
         return NotImplementedError
 
-    def getpath(self):
-        dirname = self.name + '-' + \
-                  os.path.splitext(os.path.split(self.run._path)[1])[0] + '-' + \
-                  os.path.splitext(os.path.split(self.data_cfg._path)[1])[0] + '-' + str(self.data_cfg.index_cross)
-        return os.path.join(configs.env.getdir(configs.env.paths.save_folder), dirname)
+    def summary_models(self, shapes):
+        # TODO only one graph
+        if hasattr(self, 'summary'):
+            v = self.__dict__.items()
+            for name, value in v:
+                if value.__class__.__base__ == nn.Module:
+                    self.summary.add_graph(value, torch.randn((1, *shapes[name]), device=self.device))
 
     def load(self, start_epoch=None, path=None, msg=None):
         assert start_epoch is None or (isinstance(start_epoch, int) and start_epoch >= 0)
-        path = path or self.getpath()
+        path = path or self.path
         msg = ('_' + str(msg)) if msg is not None else ''
         if start_epoch is None:
             if os.path.exists(os.path.join(path, self.name + msg + configs.env.paths.check_file)):
@@ -62,7 +69,7 @@ class BaseModel(object):
         return start_epoch
 
     def save(self, epoch, path=None, msg=None):
-        path = path or self.getpath()
+        path = path or self.path
         msg = ('_' + str(msg)) if msg is not None else ''
         if not os.path.exists(path):
             os.makedirs(path)
