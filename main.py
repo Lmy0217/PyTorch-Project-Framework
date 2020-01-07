@@ -39,8 +39,8 @@ class Main(object):
         self.dataset_cfg.index_cross = index_cross
         self.path = utils.path.get_path(self.model_cfg, self.dataset_cfg, self.run_cfg)
 
-		self.logger = utils.Logger(self.path, self.model.name)
-		self.dataset.set_logger(self.logger)
+        self.logger = utils.Logger(self.path, self.model.name)
+        self.dataset.set_logger(self.logger)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
         self.train_loader = DataLoader(self.trainset, batch_size=self.run_cfg.batch_size, shuffle=True,
