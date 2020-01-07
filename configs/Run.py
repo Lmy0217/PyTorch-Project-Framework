@@ -11,6 +11,7 @@ class Run(configs.BaseConfig):
     def _more(self):
         self.cuda = torch.cuda.is_available() and getattr(self, 'cuda', True)
         torch.backends.cudnn.benchmark = self.cuda
+        torch.backends.cudnn.deterministic = True
 
     @staticmethod
     def all():
