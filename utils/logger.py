@@ -19,27 +19,27 @@ class Logger(object):
             (not os.path.exists(self.logging_file) and os.mknod(self.logging_file))
 
     def _setlogger(self):
-        global _logger
-        if '_logger' not in globals():
-            _logger = logging.getLogger()
+        global _utils_logger
+        if '_utils_logger' not in globals():
+            _utils_logger = logging.getLogger()
         else:
-            for idx in reversed(range(len(_logger.handlers))):
-                _logger.handlers[idx].close()
-                _logger.removeHandler(_logger.handlers[idx])
+            for idx in reversed(range(len(_utils_logger.handlers))):
+                _utils_logger.handlers[idx].close()
+                _utils_logger.removeHandler(_utils_logger.handlers[idx])
 
-        _logger.setLevel(level=logging.INFO)
+        _utils_logger.setLevel(level=logging.INFO)
         formatter = logging.Formatter('%(asctime)s :  %(message)s')
 
         handler = logging.FileHandler(self.logging_file)
         handler.setLevel(logging.INFO)
         handler.setFormatter(formatter)
-        _logger.addHandler(handler)
+        _utils_logger.addHandler(handler)
         console = logging.StreamHandler()
         console.setLevel(logging.INFO)
         console.setFormatter(formatter)
-        _logger.addHandler(console)
+        _utils_logger.addHandler(console)
 
-        return _logger
+        return _utils_logger
 
     def info(self, msg):
         self.logger.info(msg)
