@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+import torch
 import numpy as np
 import math
 import os
@@ -13,10 +14,14 @@ class BaseDataset(Dataset):
         self.cfg = self.more(self._more(cfg))
         self.data, self.cfg.data_count = self._load()
 
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
     @staticmethod
     def _more(cfg):
         for name, value in configs.env.dataset.dict().items():
             setattr(cfg, name, getattr(cfg, name, value))
+        cfg.out = configs.BaseConfig({'elements': 1})
         return cfg
 
     @staticmethod
@@ -104,6 +109,27 @@ class BaseDataset(Dataset):
             raise NotImplementedError
         return data
 
+    def _norm_1(self):
+        for name, value in self.data.items():
+            if self.need_norm(value.shape):
+                ms = self.ms[-1].get(name)
+                self.data[name] = \
+                    (self.data[name] - np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (value.ndim - 2))))) / \
+                    np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (value.ndim - 2))))
+
+    def _renorm_1(self, data, name, ms_slice=None):
+        if self.need_norm(data.shape):
+            ms = self.ms[-1].get(name)
+            if ms_slice is not None:
+                ms = (ms[0][ms_slice], ms[1][ms_slice])
+            if ms is not None:
+                mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+                std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+                if isinstance(data, torch.Tensor):
+                    mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+                data = data * std + mean
+        return data
+
     def _norm_3(self):
         for name, value in self.data.items():
             if self.need_norm(value.shape):
@@ -118,8 +144,11 @@ class BaseDataset(Dataset):
             if ms_slice is not None:
                 ms = (ms[0][ms_slice], ms[1][ms_slice])
             if ms is not None:
-                data = data * 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2)))) \
-                       + np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+                mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+                std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+                if isinstance(data, torch.Tensor):
+                    mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+                data = data * std + mean
         return data
 
     def _norm_threshold(self):
