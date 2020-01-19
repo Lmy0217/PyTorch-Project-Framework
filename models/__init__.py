@@ -1,8 +1,9 @@
 from .BaseModel import *
 from .BaseTest import *
-from .shallow import *
-from .layers import *
-from .optimizers import *
+
+from . import shallow
+from . import layers
+from . import optimizers
 
 from .wgan_gp import WGAN_GP
 
