@@ -22,7 +22,8 @@ class BaseTest(object):
 
                 for splitset, set_name in zip([trainset, testset], ['Trainset', 'Testset']):
                     logger.info("-- " + set_name + " size: " + str(len(splitset)))
-                    log_step = max(int(np.power(10, np.floor(np.log10(len(splitset) / 100)))), 1)
+                    log_step = max(int(
+                        np.power(10, np.floor(np.log10(len(splitset) / 100)))), 1) if len(splitset) > 0 else 0
                     for i in range(len(splitset)):
                         sample_info = "  -- The " + str(i + 1) + "-th sample:"
                         sample_dict, index = splitset[i]
