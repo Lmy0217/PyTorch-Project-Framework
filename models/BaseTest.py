@@ -56,6 +56,7 @@ class BaseTest(object):
 
                         epoch_info = {'epoch': 1, 'batch_idx': 0, 'batch_per_epoch': 1,
                                       'count_data': configs.env.ci.batchsize}
+                        summary.update_epochinfo(epoch_info)
                         loss_dict = model.train(epoch_info, sample_dict)
                         logger.info("\t\t-- loss(es): " + str(loss_dict))
 

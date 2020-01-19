@@ -64,6 +64,7 @@ class Main(object):
         epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
             epoch_info['batch_idx'] = batch_idx
+            self.summary.update_epochinfo(epoch_info)
             loss_dict = self.model.train(epoch_info, sample_dict)
             count += len(list(sample_dict.values())[0])
             if batch_idx % log_step == 0:
