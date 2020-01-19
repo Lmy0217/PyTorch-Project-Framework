@@ -206,8 +206,10 @@ class BaseDataset(Dataset):
 
     def _cross(self, index_cross, data_count=None, elements_per_data=None):
         assert 0 <= index_cross <= self.cfg.cross_folder
-        if index_cross == 0:
-            return 0, (data_count or self.cfg.data_count) * (elements_per_data or self.cfg.out.elements)
+        if self.cfg.cross_folder == 0:
+            # TODO need more test: change only trainset in index_cross = 0,
+            #  now only testset in index_cross = 0 or index_cross = 1
+            return [[0, len(self)]], [], [[0, self.cfg.data_count]], [0, 0, 0, 0]
         fold_length = math.floor((data_count or self.cfg.data_count) / self.cfg.cross_folder)
         fold_residual = (data_count or self.cfg.data_count) - self.cfg.cross_folder * fold_length
         adding_step = fold_residual / self.cfg.cross_folder
@@ -235,12 +237,16 @@ class BaseDataset(Dataset):
                 norm_set = list()
                 for nr in norm_range:
                     norm_set.extend(range(nr[0], nr[1]))
-            if not hasattr(self, 'ms'):
-                self.ms = list()
+            if norm_set or split_items:
+                if not hasattr(self, 'ms'):
+                    self.ms = list()
+                else:
+                    self._renorm()
+                self.ms.append(self._ms(norm_set, split_items))
+                self._norm()
             else:
-                self._renorm()
-            self.ms.append(self._ms(norm_set, split_items))
-            self._norm()
+                self.cfg.norm = False
+                self.logger.info('Normset is empty! Setting cfg.norm = False')
 
     def split(self, index_cross):
         self.cfg.index_cross = index_cross
