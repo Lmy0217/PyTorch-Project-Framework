@@ -72,6 +72,10 @@ class BaseDataset(Dataset):
             eles *= n
         return eles > 1
 
+    @staticmethod
+    def meanstd(data):
+        return np.mean(data, (0, *tuple(range(2, data.ndim)))), np.std(data, (0, *tuple(range(2, data.ndim))))
+
     # TODO need more test
     def _ms(self, norm_set=None, split_items=None):
         assert norm_set or split_items or isinstance(split_items, dict)
@@ -82,92 +86,99 @@ class BaseDataset(Dataset):
             if self.need_norm(data.shape):
                 if norm_set is not None:
                     data = data[norm_set]
-                ms_dict[name] = [np.mean(data, (0, *tuple(range(2, data.ndim)))),
-                                 np.std(data, (0, *tuple(range(2, data.ndim))))]
+                ms_dict[name] = self.meanstd(data)
                 if split_items is not None:
                     ms_dict[split_items[1][idx]] = ms_dict[name]
         self.logger.info(ms_dict)
         return ms_dict
 
     def _norm(self):
-        norm_func = getattr(self, '_norm_' + self.cfg.norm, None)
-        if norm_func is not None:
-            norm_func()
-        else:
-            raise NotImplementedError
+        for name, value in self.data.items():
+            self.data[name] = self.norm(value, name)
 
     def _renorm(self):
         for name, value in self.data.items():
-            if self.need_norm(value.shape):
-                self.data[name] = self.renorm(value, name)
+            self.data[name] = self.renorm(value, name)
+
+    def norm(self, data, name, **kwargs):
+        assert self.cfg.norm is not None
+        norm_func = getattr(self, '_norm_' + self.cfg.norm, None)
+        if norm_func is not None:
+            if self.need_norm(data.shape):
+                data = norm_func(data, name, **kwargs)
+        else:
+            raise NotImplementedError('Method _norm_{} is not implemented!'.format(self.cfg.norm))
+        return data
 
     def renorm(self, data, name, **kwargs):
+        assert self.cfg.norm is not None
         renorm_func = getattr(self, '_renorm_' + self.cfg.norm, None)
         if renorm_func is not None:
-            data = renorm_func(data, name, **kwargs)
+            if self.need_norm(data.shape):
+                data = renorm_func(data, name, **kwargs)
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Method _renorm_{} is not implemented!'.format(self.cfg.norm))
         return data
 
-    def _norm_1(self):
-        for name, value in self.data.items():
-            if self.need_norm(value.shape):
-                ms = self.ms[-1].get(name)
-                self.data[name] = \
-                    (self.data[name] - np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (value.ndim - 2))))) / \
-                    np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (value.ndim - 2))))
+    def _norm_1(self, data, name):
+        ms = self.ms[-1].get(name)
+        if ms is not None:
+            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+            std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+            if isinstance(data, torch.Tensor):
+                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+            data = (data - mean) / std
+        return data
 
     def _renorm_1(self, data, name, ms_slice=None):
-        if self.need_norm(data.shape):
-            ms = self.ms[-1].get(name)
-            if ms_slice is not None:
-                ms = (ms[0][ms_slice], ms[1][ms_slice])
-            if ms is not None:
-                mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-                std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-                if isinstance(data, torch.Tensor):
-                    mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-                data = data * std + mean
+        ms = self.ms[-1].get(name)
+        if ms_slice is not None:
+            ms = (ms[0][ms_slice], ms[1][ms_slice])
+        if ms is not None:
+            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+            std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+            if isinstance(data, torch.Tensor):
+                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+            data = data * std + mean
         return data
 
-    def _norm_3(self):
-        for name, value in self.data.items():
-            if self.need_norm(value.shape):
-                ms = self.ms[-1].get(name)
-                self.data[name] = \
-                    (self.data[name] - np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (value.ndim - 2))))) / \
-                    np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (value.ndim - 2)))) / 3
+    def _norm_3(self, data, name):
+        ms = self.ms[-1].get(name)
+        if ms is not None:
+            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+            std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+            if isinstance(data, torch.Tensor):
+                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+            data = (data - mean) / std
+        return data
 
     def _renorm_3(self, data, name, ms_slice=None):
-        if self.need_norm(data.shape):
-            ms = self.ms[-1].get(name)
-            if ms_slice is not None:
-                ms = (ms[0][ms_slice], ms[1][ms_slice])
-            if ms is not None:
-                mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-                std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-                if isinstance(data, torch.Tensor):
-                    mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-                data = data * std + mean
+        ms = self.ms[-1].get(name)
+        if ms_slice is not None:
+            ms = (ms[0][ms_slice], ms[1][ms_slice])
+        if ms is not None:
+            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+            std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+            if isinstance(data, torch.Tensor):
+                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
+            data = data * std + mean
         return data
 
-    def _norm_threshold(self):
-        for name, data in self.data.items():
-            if self.need_norm(data.shape):
-                cfg = getattr(self.cfg, name, None)
-                lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
-                if lower is not None and upper is not None:
-                    self.data[name] = np.clip(self.data[name], a_min=lower, a_max=upper)
-                    self.data[name] = (self.data[name] - lower) / (upper - lower)
-                    self.data[name] = (self.data[name] - 0.5) / 0.5
+    def _norm_threshold(self, data, name):
+        cfg = getattr(self.cfg, name, None)
+        lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
+        if lower is not None and upper is not None:
+            data = np.clip(data, a_min=lower, a_max=upper)
+            data = (data - lower) / (upper - lower)
+            data = (data - 0.5) / 0.5
+        return data
 
     def _renorm_threshold(self, data, name, ms_slice=None):
-        if self.need_norm(data.shape):
-            cfg = getattr(self.cfg, name, None)
-            lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
-            if lower is not None and upper is not None:
-                data = data * 0.5 + 0.5
-                data = data * (upper - lower) + lower
+        cfg = getattr(self.cfg, name, None)
+        lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
+        if lower is not None and upper is not None:
+            data = data * 0.5 + 0.5
+            data = data * (upper - lower) + lower
         return data
 
     def _2dto3d(self, sample):
@@ -231,12 +242,15 @@ class BaseDataset(Dataset):
 
     # TODO need more test
     def _reset_norm(self, norm_range=None, split_items=None):
-        if self.cfg.norm:
-            norm_set = None
-            if norm_range is not None:
-                norm_set = list()
-                for nr in norm_range:
-                    norm_set.extend(range(nr[0], nr[1]))
+        norm_set = None
+        if norm_range is not None:
+            norm_set = list()
+            for nr in norm_range:
+                norm_set.extend(range(nr[0], nr[1]))
+        self.split_set = norm_set
+        self.split_item = split_items
+
+        if self.cfg.norm is not None:
             if norm_set or split_items:
                 if not hasattr(self, 'ms'):
                     self.ms = list()
@@ -291,6 +305,7 @@ class BaseSplit(Dataset):
 
     def set_logger(self, logger):
         self.logger = logger
+
 
 if __name__ == "__main__":
     print(datasets.all())
