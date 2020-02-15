@@ -103,7 +103,7 @@ class WGAN_GP(models.BaseModel):
         loss_d = -torch.mean(real_validity) + torch.mean(fake_validity) + self.cfg.lambda_gp * gradient_penalty
         return loss_d
 
-    def train(self, batch_idx, sample_dict):
+    def train(self, epoch_info, sample_dict):
         real_source, real_target = sample_dict['source'].to(self.device), sample_dict['target'].to(self.device)
 
         self.G.train()
@@ -115,7 +115,7 @@ class WGAN_GP(models.BaseModel):
         self.optimizer_D.step()
 
         self.optimizer_G.zero_grad()
-        if batch_idx % self.cfg.n_critic == 0:
+        if epoch_info['batch_idx'] % self.cfg.n_critic == 0:
             self.loss_g = self._train_G(real_source, real_target)
             self.loss_g.backward()
             self.optimizer_G.step()
