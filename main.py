@@ -65,7 +65,7 @@ class Main(object):
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
             epoch_info['batch_idx'] = batch_idx
             self.summary.update_epochinfo(epoch_info)
-            loss_dict = self.model.train(epoch_info, sample_dict)
+            loss_dict = self.model.train_process(epoch_info, sample_dict)
             count += len(list(sample_dict.values())[0])
             if batch_idx % log_step == 0:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
@@ -84,7 +84,7 @@ class Main(object):
         log_step, count = 1, 0
         with torch.no_grad():
             for batch_idx, (sample_dict, index) in enumerate(self.test_loader):
-                output_dict = self.model.test(batch_idx, sample_dict)
+                output_dict = self.model.test_process(batch_idx, sample_dict)
                 count += len(list(sample_dict.values())[0])
                 if batch_idx % log_step == 0:
                     self.logger.info('Test Epoch: {} [{}/{} ({:.0f}%)]'.format(
@@ -128,13 +128,13 @@ class Main(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Template')
-    parser.add_argument('--model_config_path', type=str, required=True, metavar='/path/to/model/config.json',
+    parser.add_argument('--model_config_path', '-m', type=str, required=True, metavar='/path/to/model/config.json',
                         help='Path to model config .json file')
-    parser.add_argument('--run_config_path', type=str, required=True, metavar='/path/to/run/config.json',
+    parser.add_argument('--run_config_path', '-r', type=str, required=True, metavar='/path/to/run/config.json',
                         help='Path to run config .json file')
-    parser.add_argument('--dataset_config_path', type=str, required=True, metavar='/path/to/dataset/config.json',
+    parser.add_argument('--dataset_config_path', '-d', type=str, required=True, metavar='/path/to/dataset/config.json',
                         help='Path to dataset config .json file')
-    parser.add_argument('--test_epoch', type=int, metavar='epoch want to test', help='epoch want to test')
+    parser.add_argument('--test_epoch', '-t', type=int, metavar='epoch want to test', help='epoch want to test')
     parser.add_argument('--ci', action='store_false' if configs.env.ci.run else 'store_true',
                         default=configs.env.ci.run, help='running CI')
     args = parser.parse_args()
