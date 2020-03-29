@@ -37,11 +37,29 @@ class BaseModel(object):
                 m[name] = value
         return m
 
+    def train_pre_hook(self, epoch_info, sample_dict):
+        return epoch_info, sample_dict
+
     def train(self, epoch_info, sample_dict):
         return NotImplementedError
 
+    def train_hook(self, return_dict):
+        return return_dict
+
+    def train_process(self, epoch_info, sample_dict):
+        return self.train_hook(self.train(*self.train_pre_hook(epoch_info, sample_dict)))
+
+    def test_pre_hook(self, batch_idx, sample_dict):
+        return batch_idx, sample_dict
+
     def test(self, batch_idx, sample_dict):
         return NotImplementedError
+
+    def test_hook(self, return_dict):
+        return return_dict
+
+    def test_process(self, batch_idx, sample_dict):
+        return self.test_hook(self.test(*self.test_pre_hook(batch_idx, sample_dict)))
 
     def summary_models(self, shapes):
         # TODO only one graph
