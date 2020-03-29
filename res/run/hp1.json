@@ -1,8 +1,8 @@
 {
   "name": "hp1",
   "batch_size": 4,
-  "epochs": 200,
-  "save_step": 10,
+  "epochs": 3,
+  "save_step": 1,
   "lr": 0.0002,
   "weight_decay": 0,
   "momentum": 0,
