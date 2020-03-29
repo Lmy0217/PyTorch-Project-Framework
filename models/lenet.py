@@ -71,11 +71,12 @@ class LeNet(models.BaseModel):
 
         fake_validity = self.structure(real_source)
         loss = self.criterion(fake_validity, real_target.reshape(real_target.size(0)))
-
         fake_target, accuracy = utils.algorithm.correct(fake_validity, real_target)
 
-        return {'real_source': real_source, 'real_target': real_target, 'fake_target': fake_target}, {}, \
-               {'accuracy': accuracy}
+        # TODO update batch_idx for use summary
+        print(loss, accuracy)
+
+        return {'real_source': real_source, 'real_target': real_target, 'fake_target': fake_target}
 
 
 if __name__ == "__main__":
