@@ -74,9 +74,8 @@ class LeNet(models.BaseModel):
         fake_target, accuracy = utils.algorithm.correct(fake_validity, real_target)
 
         # TODO update batch_idx for use summary
-        print(loss, accuracy)
-
-        return {'real_source': real_source, 'real_target': real_target, 'fake_target': fake_target}
+        return {'real_source': real_source, 'real_target': real_target, 'fake_target': fake_target,
+                'loss': loss, 'accuracy': torch.tensor(accuracy)}
 
 
 if __name__ == "__main__":
