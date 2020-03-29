@@ -28,6 +28,7 @@ class MNIST(datasets.BaseDataset):
         test = Datasets.MNIST(self.cfg.path, train=False, download=True)
 
         source_train, source_test = train.data.numpy()[:, np.newaxis, :, :], test.data.numpy()[:, np.newaxis, :, :]
+        source_train, source_test = source_train.astype(np.float32), source_test.astype(np.float32)
         target_train, target_test = train.targets.numpy()[:, np.newaxis], test.targets.numpy()[:, np.newaxis]
         count_train, count_test = len(train), len(test)
         count = count_train + count_test
