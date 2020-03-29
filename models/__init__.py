@@ -6,6 +6,7 @@ from . import layers
 from . import optimizers
 
 from .wgan_gp import WGAN_GP
+from .lenet import LeNet
 
 
 def all():
