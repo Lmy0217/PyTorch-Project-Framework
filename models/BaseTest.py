@@ -57,11 +57,11 @@ class BaseTest(object):
                         epoch_info = {'epoch': 1, 'batch_idx': 0, 'batch_per_epoch': 1,
                                       'count_data': configs.env.ci.batchsize}
                         summary.update_epochinfo(epoch_info)
-                        loss_dict = model.train(epoch_info, sample_dict)
+                        loss_dict = model.train_process(epoch_info, sample_dict)
                         logger.info("\t\t-- loss(es): " + str(loss_dict))
 
                         torch.cuda.empty_cache()
-                        result_dict = model.test(0, sample_dict)
+                        result_dict = model.test_process(0, sample_dict)
                         for name, value in result_dict.items():
                             result_dict[name] = value.shape
                         logger.info("\t\t-- result(s) size: " + str(result_dict))
