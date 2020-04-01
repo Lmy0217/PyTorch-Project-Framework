@@ -36,3 +36,4 @@ jobs:
     - name: Test
       run: |
         python -m test
+        python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"

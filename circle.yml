@@ -50,6 +50,7 @@ jobs:
           command: |
             . venv/bin/activate
             python3 -m test
+            python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"
 
       - store_artifacts:
           path: test-reports
