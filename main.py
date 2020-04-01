@@ -39,7 +39,7 @@ class Main(object):
         self.dataset_cfg.index_cross = index_cross
         self.path = utils.path.get_path(self.model_cfg, self.dataset_cfg, self.run_cfg)
 
-        self.logger = utils.Logger(self.path, self.model.name)
+        self.logger = utils.Logger(self.path, self.model_cfg.name)
         self.dataset.set_logger(self.logger)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
