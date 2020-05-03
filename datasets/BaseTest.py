@@ -13,7 +13,7 @@ class BaseTest(object):
         for dataset_cfg in datasets.allcfgs():
             if hasattr(dataset_cfg, 'name') and dataset_cfg.name == self.dataset.__name__:
                 dataset_name = os.path.splitext(os.path.split(dataset_cfg._path)[1])[0]
-                logger = utils.Logger('test', dataset_name)
+                logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test'), dataset_name)
                 logger.info('Testing dataset: ' + dataset_name + ' ...')
                 dataset = self.dataset(dataset_cfg)
                 dataset.set_logger(logger)

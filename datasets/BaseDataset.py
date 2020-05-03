@@ -1,3 +1,4 @@
+from typing import Union
 from torch.utils.data import Dataset
 import torch
 import numpy as np
@@ -29,7 +30,7 @@ class BaseDataset(Dataset):
         return cfg
 
     def _load(self):
-        return NotImplementedError
+        raise NotImplementedError
 
     def _path(self, index):
         paths = self.cfg.paths
@@ -56,6 +57,12 @@ class BaseDataset(Dataset):
                         for ii, ss in enumerate(list(str(index[l_index]).zfill(l_index_count))):
                             l[l_index_start + ii] = ss
                         l_index_count, l_flag = 0, False
+            if l_flag:
+                if index[l_index] < 1 or index[l_index] > file_count[l_index] or \
+                        len(str(index[l_index])) > l_index_count:
+                    raise ValueError
+                for ii, ss in enumerate(list(str(index[l_index]).zfill(l_index_count))):
+                    l[l_index_start + ii] = ss
             path_dict[name] = ''.join(l)
         return path_dict
 
@@ -76,9 +83,9 @@ class BaseDataset(Dataset):
     def meanstd(data):
         return np.mean(data, (0, *tuple(range(2, data.ndim)))), np.std(data, (0, *tuple(range(2, data.ndim))))
 
-    # TODO need more test
-    def _ms(self, norm_set=None, split_items=None):
-        assert norm_set or split_items or isinstance(split_items, dict)
+    def _ms(self, norm_set: Union[None, list] = None, split_items: Union[None, list] = None):
+        assert norm_set or (split_items and len(split_items) == 2 and isinstance(split_items[0], list)
+                            and isinstance(split_items[1], list) and len(split_items[0]) == len(split_items[1]))
         ms_dict = dict()
         ms_items = split_items[0] if split_items is not None else self.data.keys()
         for idx, name in enumerate(ms_items):
@@ -89,7 +96,8 @@ class BaseDataset(Dataset):
                 ms_dict[name] = self.meanstd(data)
                 if split_items is not None:
                     ms_dict[split_items[1][idx]] = ms_dict[name]
-        self.logger.info(ms_dict)
+        if hasattr(self, 'logger'):
+            self.logger.info(ms_dict)
         return ms_dict
 
     def _norm(self):
@@ -102,90 +110,54 @@ class BaseDataset(Dataset):
 
     def norm(self, data, name, **kwargs):
         assert self.cfg.norm is not None
-        norm_func = getattr(self, '_norm_' + self.cfg.norm, None)
+        norm_func = getattr(datasets.functional.norm, self.cfg.norm + '_norm', None)
         if norm_func is not None:
             if self.need_norm(data.shape):
-                data = norm_func(data, name, **kwargs)
+                data = norm_func(**self._get_args(norm_func, data, name, **kwargs))
         else:
-            raise NotImplementedError('Method _norm_{} is not implemented!'.format(self.cfg.norm))
+            raise NotImplementedError('method {}_norm is not implemented!'.format(self.cfg.norm))
         return data
 
     def renorm(self, data, name, **kwargs):
         assert self.cfg.norm is not None
-        renorm_func = getattr(self, '_renorm_' + self.cfg.norm, None)
+        renorm_func = getattr(datasets.functional.norm, self.cfg.norm + '_renorm', None)
         if renorm_func is not None:
             if self.need_norm(data.shape):
-                data = renorm_func(data, name, **kwargs)
+                data = renorm_func(**self._get_args(renorm_func, data, name, **kwargs))
         else:
-            raise NotImplementedError('Method _renorm_{} is not implemented!'.format(self.cfg.norm))
+            raise NotImplementedError('method {}_renorm is not implemented!'.format(self.cfg.norm))
         return data
 
-    def _norm_1(self, data, name):
+    def _get_args(self, norm_func, data, name: str, **kwargs):
         ms = self.ms[-1].get(name)
-        if ms is not None:
-            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-            std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-            if isinstance(data, torch.Tensor):
-                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-            data = (data - mean) / std
-        return data
-
-    def _renorm_1(self, data, name, ms_slice=None):
-        ms = self.ms[-1].get(name)
-        if ms_slice is not None:
+        if ms is not None and 'ms_slice' in kwargs.keys():
+            ms_slice = kwargs['ms_slice']
             ms = (ms[0][ms_slice], ms[1][ms_slice])
-        if ms is not None:
-            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-            std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-            if isinstance(data, torch.Tensor):
-                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-            data = data * std + mean
-        return data
-
-    def _norm_3(self, data, name):
-        ms = self.ms[-1].get(name)
-        if ms is not None:
-            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-            std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-            if isinstance(data, torch.Tensor):
-                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-            data = (data - mean) / std
-        return data
-
-    def _renorm_3(self, data, name, ms_slice=None):
-        ms = self.ms[-1].get(name)
-        if ms_slice is not None:
-            ms = (ms[0][ms_slice], ms[1][ms_slice])
-        if ms is not None:
-            mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-            std = 3 * np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-            if isinstance(data, torch.Tensor):
-                mean, std = torch.from_numpy(mean).to(data.device), torch.from_numpy(std).to(data.device)
-            data = data * std + mean
-        return data
-
-    def _norm_threshold(self, data, name):
-        cfg = getattr(self.cfg, name, None)
-        lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
-        if lower is not None and upper is not None:
-            data = np.clip(data, a_min=lower, a_max=upper)
-            data = (data - lower) / (upper - lower)
-            data = (data - 0.5) / 0.5
-        return data
-
-    def _renorm_threshold(self, data, name, ms_slice=None):
-        cfg = getattr(self.cfg, name, None)
-        lower, upper = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
-        if lower is not None and upper is not None:
-            data = data * 0.5 + 0.5
-            data = data * (upper - lower) + lower
-        return data
-
-    def _2dto3d(self, sample):
-        assert sample.ndim == 4
-        return sample[:, np.newaxis, :, :, :]
+        cfg = getattr(self.cfg, name, getattr(self.cfg, name.split('_')[0], None))
+        args_dict = dict()
+        for key in norm_func.__code__.co_varnames:
+            if key == 'data':
+                args_dict['data'] = data
+            elif key == 'mean':
+                if ms is not None:
+                    mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+                    if isinstance(data, torch.Tensor):
+                        mean = torch.from_numpy(mean).to(data.device)
+                    args_dict['mean'] = mean
+            elif key == 'std':
+                if ms is not None:
+                    std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+                    if isinstance(data, torch.Tensor):
+                        std = torch.from_numpy(std).to(data.device)
+                    args_dict['std'] = std
+            elif hasattr(cfg, key):
+                args_dict[key] = getattr(cfg, key)
+            else:
+                raise NameError('parameter \'{}\' is not defined'.format(key))
+        return args_dict
 
     def _recover(self, index):
+        # TODO automatic recognition of data name
         index_dict = dict()
         if hasattr(self.cfg, 'source'):
             index_dict['source'] = [0, self.cfg.source.time, 0, self.cfg.source.width, 0, self.cfg.source.height] \
@@ -208,18 +180,15 @@ class BaseDataset(Dataset):
         sample_dict = dict()
         for name, i in index_dict.items():
             sample_dict[name] = self.data[name][i]
-            if getattr(self.cfg, '2dto3d', False):
-                sample_dict[name] = self._2dto3d(sample_dict[name])
         return sample_dict, index
 
     def __len__(self):
         return self.cfg.data_count * self.cfg.out.elements
 
-    def _cross(self, index_cross, data_count=None, elements_per_data=None):
-        assert 0 <= index_cross <= self.cfg.cross_folder
+    def _cross(self, index_cross: int, data_count=None, elements_per_data=None):
+        # Using: data_count as the number of classes and elements_per_data as the number of images in each class
+        assert 0 < index_cross <= self.cfg.cross_folder or (index_cross == 0 and self.cfg.cross_folder == 0)
         if self.cfg.cross_folder == 0:
-            # TODO need more test: change only trainset in index_cross = 0,
-            #  now only testset in index_cross = 0 or index_cross = 1
             return [[0, len(self)]], [], [[0, self.cfg.data_count]], [0, 0, 0, 0]
         fold_length = math.floor((data_count or self.cfg.data_count) / self.cfg.cross_folder)
         fold_residual = (data_count or self.cfg.data_count) - self.cfg.cross_folder * fold_length
@@ -240,12 +209,12 @@ class BaseDataset(Dataset):
         return index_range_trainset, index_range_testset, norm_range, \
                [index_start, index_length, norm_start, norm_length]
 
-    # TODO need more test
-    def _reset_norm(self, norm_range=None, split_items=None):
+    def _reset_norm(self, norm_range: Union[None, list] = None, split_items: Union[None, list] = None):
         norm_set = None
         if norm_range is not None:
             norm_set = list()
             for nr in norm_range:
+                assert isinstance(nr, list) and len(nr) == 2
                 norm_set.extend(range(nr[0], nr[1]))
         self.split_set = norm_set
         self.split_item = split_items
@@ -259,8 +228,9 @@ class BaseDataset(Dataset):
                 self.ms.append(self._ms(norm_set, split_items))
                 self._norm()
             else:
-                self.cfg.norm = False
-                self.logger.info('Normset is empty! Setting cfg.norm = False')
+                self.cfg.norm = None
+                if hasattr(self, 'logger'):
+                    self.logger.info('Normset is empty! Setting cfg.norm = None')
 
     def split(self, index_cross):
         self.cfg.index_cross = index_cross
@@ -276,7 +246,8 @@ class BaseSplit(Dataset):
         self.indexset, self.lengthset, self.offset = self._index(index_range_set)
         self.count = len(self.indexset)
         self.raw_count = self.count // self.dataset.cfg.out.elements
-        self.set_logger(self.dataset.logger)
+        if hasattr(self.dataset, 'logger'):
+            self.set_logger(self.dataset.logger)
 
     def _index(self, index_range_set):
         indexset, lengthset, offset, off = list(), list(), list(), 0
@@ -301,10 +272,25 @@ class BaseSplit(Dataset):
         return self.dataset[self.indexset[index]][0], index
 
     def __len__(self):
-        return len(self.indexset)
+        return self.count
 
     def set_logger(self, logger):
         self.logger = logger
+
+
+class SampleDataset(Dataset):
+
+    def __init__(self, sample: dict):
+        self.sample = sample
+
+    def __getitem__(self, index):
+        item = dict()
+        for key, value in self.sample.items():
+            item[key] = value[index]
+        return item, index
+
+    def __len__(self):
+        return len(list(self.sample.values())[0])
 
 
 if __name__ == "__main__":

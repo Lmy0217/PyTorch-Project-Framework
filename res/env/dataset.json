@@ -1,4 +1,3 @@
 {
-  "norm": "threshold",
-  "bagging": 0
+  "norm": "threshold"
 }

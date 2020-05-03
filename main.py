@@ -26,6 +26,8 @@ class Main(object):
     def _init(self):
         torch.manual_seed(int(time.time()))
         configs.env.ci.run = self.args.ci
+        # TODO remove msg['ci'], use configs.env.ci.run
+        self.msg = dict(ci='ci' if configs.env.ci.run else None)
 
     def _get_component(self):
         self.dataset = datasets.find(self.dataset_cfg.name)(self.dataset_cfg)
@@ -39,10 +41,12 @@ class Main(object):
         self.dataset_cfg.index_cross = index_cross
         self.path = utils.path.get_path(self.model_cfg, self.dataset_cfg, self.run_cfg)
 
-        self.logger = utils.Logger(self.path, self.model_cfg.name)
+        self.logger = utils.Logger(self.path, utils.path.get_filename(self.model_cfg._path))
         self.dataset.set_logger(self.logger)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
+        # more than one num_workers, use screen to detach
+        # TODO fix num_workers must set 0 in Windows
         self.train_loader = DataLoader(self.trainset, batch_size=self.run_cfg.batch_size, shuffle=True,
                                        num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
             if len(self.trainset) > 0 else list()
@@ -53,77 +57,143 @@ class Main(object):
         self.summary = utils.Summary(self.path, dataset=self.dataset)
 
         self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
-                                                      summary=self.summary)
+                                                      summary=self.summary, main_msg=self.msg)
         self.start_epoch = self.model.load(self.args.test_epoch)
 
         self.show_cfgs()
 
+    @staticmethod
+    def _get_type(cfg: configs.BaseConfig, data_name: str, test: bool = True):
+        data_type = data_name.split('_')[-1]
+        data_cfg = getattr(cfg, 'test_' + data_type, getattr(cfg, data_type, None)) \
+            if test else getattr(cfg, data_type, None)
+        if data_cfg is None and len(data_name.split('_')) > 1:
+            data_type = data_name.split('_')[-2] + '_' + data_name.split('_')[-1]
+            data_cfg = getattr(cfg, 'test_' + data_type, getattr(cfg, data_type, None)) \
+                if test else getattr(cfg, data_type, None)
+        return data_type, data_cfg
+
     def train(self, epoch):
-        log_step, count = 1, 0
+        log_step, count, loss_all = 1, 0, dict()
+        self.train_loader = self.model.train_loader_hook(self.train_loader)
         batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
         epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
+        self.model.train_epoch_pre_hook(epoch_info, self.train_loader)
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
+            _count = len(list(sample_dict.values())[0])
             epoch_info['batch_idx'] = batch_idx
+            epoch_info['index'] = index
+            epoch_info['batch_count'] = _count
             self.summary.update_epochinfo(epoch_info)
             loss_dict = self.model.train_process(epoch_info, sample_dict)
-            count += len(list(sample_dict.values())[0])
+            loss_dict.update(dict(_count=_count))
+            utils.merge_dict(loss_all, loss_dict)
+            count += _count
+            # TODO more scalars?
+            # self.summary.add_scalars('Losses', loss_dict, (epoch - 1) * batch_per_epoch + batch_idx + 1)
             if batch_idx % log_step == 0:
-                msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
-                loss = list()
-                if loss_dict:
-                    for name, value in loss_dict.items():
-                        msg += ' ' + name + ': {:.6f}'
-                        loss.append(value.item())
-                self.logger.info(msg.format(epoch, count, count_data, 100. * count / count_data, *loss))
+                self.logger.info_scalars('Train Epoch: {} [{}/{} ({:.0f}%)]\t',
+                                         (epoch, count, count_data, 100. * count / count_data), loss_dict)
+        self.model.train_epoch_hook(epoch_info, self.train_loader)
+        loss_all = self.model.train_return_hook(epoch_info, loss_all)
+        self.logger.info_scalars('Train Epoch: {}\t', (epoch,), loss_all)
         if epoch % self.run_cfg.save_step == 0:
             self.model.save(epoch)
 
+    # TODO simplify
     def test(self, epoch):
         torch.cuda.empty_cache()
         predict = dict()
         log_step, count = 1, 0
+        add_data_msgs, msgs, msgs_dict = None, None, dict()
         with torch.no_grad():
+            self.test_loader = self.model.test_loader_hook(self.test_loader)
+            batch_per_epoch, count_data = len(self.test_loader), len(self.test_loader.dataset)
+            epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
+            self.model.test_epoch_pre_hook(epoch_info, self.test_loader)
             for batch_idx, (sample_dict, index) in enumerate(self.test_loader):
-                output_dict = self.model.test_process(batch_idx, sample_dict)
-                count += len(list(sample_dict.values())[0])
+                _count = len(list(sample_dict.values())[0])
+                epoch_info['batch_idx'] = batch_idx
+                epoch_info['index'] = index
+                epoch_info['batch_count'] = _count
+                self.summary.update_epochinfo(epoch_info)
+                output_dict = self.model.test_process(epoch_info, sample_dict)
+                # TODO remove msgs (Diagnosis), change diagnosis datasets cfgs filename
+                if isinstance(output_dict, tuple):
+                    if len(output_dict) == 2:
+                        add_data_msgs, output_dict = output_dict[1], output_dict[0]
+                    elif len(output_dict) == 3:
+                        msgs, add_data_msgs, output_dict = output_dict[2], output_dict[1], output_dict[0]
+                count += _count
+                if msgs is not None:
+                    for name, value in msgs.items():
+                        if name not in msgs_dict.keys():
+                            msgs_dict[name] = value
+                        else:
+                            msgs_dict[name] += value
                 if batch_idx % log_step == 0:
                     self.logger.info('Test Epoch: {} [{}/{} ({:.0f}%)]'.format(
                         epoch, count, len(self.test_loader.dataset), 100. * count / len(self.test_loader.dataset)))
                 if len(predict) != len(output_dict):
                     for name, value in output_dict.items():
-                        data_type = name.split('_')[-1]
-                        data_cfg = getattr(self.dataset.cfg, data_type, None)
+                        data_type, data_cfg = self._get_type(self.dataset.cfg, name, test=True)
                         if data_cfg is not None:
-                            predict_shape = (data_cfg.time, data_cfg.width, data_cfg.height) \
-                                if data_cfg.elements > 1 else [1]
+                            if add_data_msgs is None:
+                                predict_shape = (data_cfg.time, data_cfg.width, data_cfg.height) \
+                                    if data_cfg.elements > 1 else [1]
+                            else:
+                                predict_shape = value.shape[1:]
                             predict[name] = torch.zeros(self.testset.raw_count, *predict_shape)
                         else:
                             predict[name] = torch.Tensor().to(value.device)
                 for name, value in output_dict.items():
-                    data_type = name.split('_')[-1]
-                    data_cfg = getattr(self.dataset.cfg, data_type, None)
+                    data_type, data_cfg = self._get_type(self.dataset.cfg, name, test=True)
                     if data_cfg is not None:
                         for i in range(len(value)):
                             slice_recover = self.testset.recover(index[i])[data_type]
+                            if add_data_msgs is not None:
+                                slice_recover = slice_recover[0]
                             predict[name][slice_recover] = value[i]
                     else:
                         predict[name] = torch.cat((predict[name], value.float()
                             if value.shape else torch.tensor([value], dtype=torch.float).to(value.device)))
+            self.model.test_epoch_hook(epoch_info, self.test_loader)
+            if msgs is not None:
+                log_msg = 'Test Epoch: {}'
+                accuracy = list()
+                for name, value in msgs_dict.items():
+                    msgs_dict[name] = 100. * value / count
+                    log_msg += ' ' + name + ': {:0.2f}%'
+                    accuracy.append(msgs_dict[name])
+                self.logger.info(log_msg.format(epoch, *accuracy))
+                self.summary.add_scalars('Accuracy', msgs_dict, epoch)
 
+        # TODO do not support chain norm and renorm
+        dataset_cfg, dataset = [self.dataset.cfg], [self.dataset]
+        # while hasattr(dataset_cfg[-1], 'super'):
+        #     dataset.append(dataset[-1].super_dataset)
+        #     dataset_cfg.append(dataset[-1].cfg)
         for name, value in predict.items():
             predict[name] = np.array(value.cpu())
-            if self.dataset_cfg.norm and self.dataset.need_norm(value.shape):
-                data_type = name.split('_')[-1]
-                data_cfg = getattr(self.dataset.cfg, data_type, None)
-                if data_cfg is not None:
-                    other = dict()
-                    predict[name] = self.dataset.renorm(predict[name], data_type, **other)
-
-        if epoch % 1 == 0:
-            predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
-                                        + configs.env.paths.predict_file)
-            if predict:
-                scipy.io.savemat(predict_file, predict)
+            for d_cfg, d in zip(dataset_cfg, dataset):
+                if d_cfg.norm and d.need_norm(value.shape):
+                    data_type, data_cfg = self._get_type(d_cfg, name, test=False)
+                    if data_cfg is not None:
+                        other = dict()
+                        if add_data_msgs is not None:
+                            key = name.split('_')[0] + '_' + name.split('_')[1]
+                            if key in add_data_msgs.keys():
+                                one_msg = add_data_msgs[key]
+                                one_shape = getattr(one_msg, data_type)
+                                ms_slice = slice(one_shape.bT, one_shape.bT + one_shape.time)
+                                other['ms_slice'] = ms_slice
+                        predict[name] = d.renorm(predict[name], data_type, **other)
+        predict = self.model.test_return_hook(epoch_info, predict)
+        predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
+                                    + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
+                                    + configs.env.paths.predict_file)
+        if predict:
+            scipy.io.savemat(predict_file, predict)
 
 
 if __name__ == '__main__':
@@ -142,11 +212,22 @@ if __name__ == '__main__':
 
     main = Main(args)
     for index_cross in range(min(main.dataset.cfg.cross_folder, 1), main.dataset.cfg.cross_folder + 1):
-        main.split(index_cross)
-        if args.test_epoch is None:
-            for epoch in range(main.start_epoch + 1, main.run_cfg.epochs + 1):
-                main.train(epoch)
-                if epoch % main.run_cfg.save_step == 0:
-                    main.test(epoch)
-        else:
-            main.test(main.start_epoch)
+        main.msg.update(dict(index_cross=index_cross, while_idx=1, while_flag=True))
+        while main.msg['while_flag']:
+            main.split(index_cross)
+            main.model.process_pre_hook()
+            if args.test_epoch is None:
+                for epoch in range(main.start_epoch + 1, main.run_cfg.epochs + 1):
+                    main.train(epoch)
+                    if epoch % main.run_cfg.save_step == 0:
+                        main.model.main_msg.update(dict(test_idx=1, test_flag=True, only_test=False))
+                        while main.model.main_msg['test_flag']:
+                            main.test(epoch)
+                            main.model.process_test_msg_hook(main.model.main_msg)
+            else:
+                main.model.main_msg.update(dict(test_idx=1, test_flag=True, only_test=True))
+                while main.model.main_msg['test_flag']:
+                    main.test(main.start_epoch)
+                    main.model.process_test_msg_hook(main.model.main_msg)
+            main.model.process_hook()
+            main.model.process_msg_hook(main.msg)

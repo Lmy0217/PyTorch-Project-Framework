@@ -4,6 +4,11 @@ import torch
 import torch.nn.functional as F
 
 
+def _2dto3d(sample):
+    assert sample.ndim == 4
+    return sample[:, np.newaxis, :, :, :]
+
+
 def sobel3d(data: Union[torch.Tensor, np.ndarray]):
     is_ndarray = False
     if isinstance(data, np.ndarray):
@@ -11,7 +16,7 @@ def sobel3d(data: Union[torch.Tensor, np.ndarray]):
         data = torch.from_numpy(data)
 
     data_3d = torch.unsqueeze(data, 1)
-    data_3d = F.pad(data_3d, (1, 1, 1, 1, 1, 1), 'replicate')
+    data_3d = F.pad(data_3d, [1, 1, 1, 1, 1, 1], 'replicate')
 
     f_x = torch.tensor(
         [
@@ -53,7 +58,7 @@ def laplace3d(data: Union[torch.Tensor, np.ndarray]):
         data = torch.from_numpy(data)
 
     data_3d = torch.unsqueeze(data, 1)
-    data_3d = F.pad(data_3d, (1, 1, 1, 1, 1, 1), 'replicate')
+    data_3d = F.pad(data_3d, [1, 1, 1, 1, 1, 1], 'replicate')
 
     f = torch.tensor(
         [

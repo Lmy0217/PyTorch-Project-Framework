@@ -20,4 +20,4 @@ def all():
 
 def find(name):
     dataset = getattr(datasets, name, None)
-    return dataset if dataset is not None and dataset.__base__ == BaseDataset else None
+    return dataset if dataset is not None and issubclass(dataset, BaseDataset) else None

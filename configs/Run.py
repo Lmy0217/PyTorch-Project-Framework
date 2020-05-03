@@ -2,6 +2,9 @@ import configs
 import torch
 
 
+__all__ = ['Run']
+
+
 class Run(configs.BaseConfig):
 
     def __init__(self, cfg):
@@ -10,7 +13,7 @@ class Run(configs.BaseConfig):
 
     def _more(self):
         self.cuda = torch.cuda.is_available() and getattr(self, 'cuda', True)
-        torch.backends.cudnn.benchmark = self.cuda
+        torch.backends.cudnn.benchmark = torch.backends.cudnn.is_available()
         torch.backends.cudnn.deterministic = True
 
     @staticmethod

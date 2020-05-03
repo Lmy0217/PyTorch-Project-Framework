@@ -3,6 +3,9 @@ import utils
 import os
 
 
+__all__ = ['BaseTest']
+
+
 class BaseTest(object):
 
     def __init__(self, path):
@@ -11,10 +14,10 @@ class BaseTest(object):
     def run(self):
         for p in self.path:
             name = os.path.splitext(os.path.split(p)[1])[0]
-            logger = utils.Logger('../configs/test', name)
+            logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test'), name)
             if isinstance(p, str) or isinstance(p, dict):
-                logger.info("Testing " + str(p) + " ...")
+                logger.info('Testing ' + str(p) + ' ...')
                 logger.info(configs.BaseConfig(p))
-                logger.info("Testing " + str(p) + " completed.")
+                logger.info('Testing ' + str(p) + ' completed.')
             else:
-                raise TypeError
+                raise TypeError('got {} but need dict or str!'.format(type(p)))

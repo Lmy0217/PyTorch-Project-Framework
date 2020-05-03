@@ -5,9 +5,10 @@ python:
   - "3.6"
 
 install:
-  - pip3 install -r requirements.txt
-  - pip3 install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+  - pip install -r requirements.txt
+  - pip install torch==1.5.0+cpu torchvision==0.6.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
 script:
-  - python3 -m test
+  - python -m unittest discover test
+  - python -m test_component
   #- python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"

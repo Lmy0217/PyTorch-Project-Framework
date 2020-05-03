@@ -1,8 +1,6 @@
 import torch.nn as nn
 import torch
 import models
-import utils
-
 
 __all__ = ['LeNet']
 
@@ -60,22 +58,22 @@ class LeNet(models.BaseModel):
         loss.backward()
         self.optimizer.step()
 
-        accuracy = utils.algorithm.correct(fake_validity, real_target, return_label=False) / real_target.size(0)
+        accuracy = models.functional.algorithm.correct(fake_validity, real_target, return_label=False) / real_target.size(0)
 
         return {'loss': loss, 'accuracy': torch.tensor(accuracy)}
 
-    def test(self, batch_idx, sample_dict):
+    def test(self, epoch_info, sample_dict):
         real_source, real_target = sample_dict['source'].to(self.device), sample_dict['target'].to(self.device)
 
         self.structure.eval()
 
         fake_validity = self.structure(real_source)
         loss = self.criterion(fake_validity, real_target.reshape(real_target.size(0)))
-        fake_target, accuracy = utils.algorithm.correct(fake_validity, real_target)
 
-        # TODO update batch_idx for use summary
+        fake_target, accuracy = models.functional.algorithm.correct(fake_validity, real_target)
+
         return {'real_source': real_source, 'real_target': real_target, 'fake_target': fake_target,
-                'loss': loss, 'accuracy': torch.tensor(accuracy)}
+                'loss': loss, 'accuracy': torch.tensor(accuracy)}, {}, {'accuracy': accuracy}
 
 
 if __name__ == "__main__":

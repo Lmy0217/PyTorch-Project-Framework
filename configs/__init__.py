@@ -1,10 +1,10 @@
 import os
 
-from .BaseConfig import *
-from .BaseTest import *
+from .BaseConfig import BaseConfig
+from .BaseTest import BaseTest
 
-from .Env import *
-from .Run import *
+from .Env import env
+from .Run import Run
 
 
 def all(config, cfg_dir):

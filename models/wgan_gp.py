@@ -122,7 +122,7 @@ class WGAN_GP(models.BaseModel):
 
         return {'loss_d': self.loss_d, 'loss_g': self.loss_g}
 
-    def test(self, batch_idx, sample_dict):
+    def test(self, epoch_info, sample_dict):
         real_source, real_target = sample_dict['source'].to(self.device), sample_dict['target'].to(self.device)
 
         self.G.eval()

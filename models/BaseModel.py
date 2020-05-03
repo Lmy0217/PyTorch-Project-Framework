@@ -1,3 +1,4 @@
+from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch
 import os
@@ -6,7 +7,73 @@ import models
 import utils
 
 
-class BaseModel(object):
+class _MainHook(object):
+
+    def process_pre_hook(self):
+        pass
+
+    def process_hook(self):
+        pass
+
+    def process_msg_hook(self, msg: dict):
+        msg.update(dict(while_flag=False))
+
+    def process_test_msg_hook(self, msg: dict):
+        msg.update((dict(test_flag=False)))
+
+
+class _ProcessHook(object):
+
+    def train_pre_hook(self, epoch_info: dict, sample_dict: dict):
+        return sample_dict
+
+    def train(self, epoch_info: dict, sample_dict: dict):
+        raise NotImplementedError
+
+    def train_hook(self, epoch_info: dict, return_dict: dict):
+        return return_dict
+
+    def train_process(self, epoch_info: dict, sample_dict: dict):
+        return self.train_hook(epoch_info, self.train(epoch_info, self.train_pre_hook(epoch_info, sample_dict)))
+
+    def train_loader_hook(self, train_loader: DataLoader):
+        return train_loader
+
+    def train_epoch_pre_hook(self, epoch_info: dict, train_loader: DataLoader):
+        pass
+
+    def train_epoch_hook(self, epoch_info: dict, train_loader: DataLoader):
+        pass
+
+    def train_return_hook(self, epoch_info: dict, return_all: dict):
+        return return_all
+
+    def test_pre_hook(self, epoch_info: dict, sample_dict: dict):
+        return sample_dict
+
+    def test(self, epoch_info: dict, sample_dict: dict):
+        raise NotImplementedError
+
+    def test_hook(self, epoch_info: dict, return_dict: dict):
+        return return_dict
+
+    def test_process(self, epoch_info: dict, sample_dict: dict):
+        return self.test_hook(epoch_info, self.test(epoch_info, self.test_pre_hook(epoch_info, sample_dict)))
+
+    def test_loader_hook(self, test_loader: DataLoader):
+        return test_loader
+
+    def test_epoch_pre_hook(self, epoch_info: dict, test_loader: DataLoader):
+        pass
+
+    def test_epoch_hook(self, epoch_info: dict, test_loader: DataLoader):
+        pass
+
+    def test_return_hook(self, epoch_info: dict, return_all: dict):
+        return return_all
+
+
+class BaseModel(_ProcessHook, _MainHook):
 
     def __init__(self, cfg, data_cfg, run, **kwargs):
         self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]
@@ -16,6 +83,9 @@ class BaseModel(object):
         self.path = utils.path.get_path(cfg, data_cfg, run)
         self.device = torch.device("cuda" if self.run.cuda else "cpu")
 
+        self._save_list = list()
+        self.msg = dict()
+
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -24,80 +94,69 @@ class BaseModel(object):
         return True
 
     def apply(self, fn):
-        v = self.__dict__.items()
-        for name, value in v:
+        for name, value in self.__dict__.items():
             if value.__class__.__base__ == nn.Module:
                 self.__dict__[name].apply(fn)
 
     def modules(self):
         m = dict()
-        v = vars(self)
-        for name, value in list(v.items()):
+        for name, value in list(vars(self).items()):
             if value.__class__.__base__ == nn.Module:
                 m[name] = value
         return m
 
-    def train_pre_hook(self, epoch_info, sample_dict):
-        return epoch_info, sample_dict
-
-    def train(self, epoch_info, sample_dict):
-        return NotImplementedError
-
-    def train_hook(self, return_dict):
-        return return_dict
-
-    def train_process(self, epoch_info, sample_dict):
-        return self.train_hook(self.train(*self.train_pre_hook(epoch_info, sample_dict)))
-
-    def test_pre_hook(self, batch_idx, sample_dict):
-        return batch_idx, sample_dict
-
-    def test(self, batch_idx, sample_dict):
-        return NotImplementedError
-
-    def test_hook(self, return_dict):
-        return return_dict
-
-    def test_process(self, batch_idx, sample_dict):
-        return self.test_hook(self.test(*self.test_pre_hook(batch_idx, sample_dict)))
+    def train_return_hook(self, epoch_info: dict, return_all: dict):
+        _count = torch.tensor(return_all.pop('_count'), dtype=torch.float32, device=self.device)
+        for key, value in return_all.items():
+            return_all[key] = _count @ torch.tensor(value, dtype=torch.float32, device=self.device) \
+                              / epoch_info['count_data']
+        return return_all
 
     def summary_models(self, shapes):
         # TODO only one graph
         if hasattr(self, 'summary'):
-            v = self.__dict__.items()
-            for name, value in v:
+            for name, value in self.__dict__.items():
                 if value.__class__.__base__ == nn.Module:
                     self.summary.add_graph(value, torch.randn((1, *shapes[name]), device=self.device))
 
-    def load(self, start_epoch=None, path=None, msg=None):
+    def load(self, start_epoch=None, path=None):
         assert start_epoch is None or (isinstance(start_epoch, int) and start_epoch >= 0)
         path = path or self.path
-        msg = ('_' + str(msg)) if msg is not None else ''
         if start_epoch is None:
-            if os.path.exists(os.path.join(path, self.name + msg + configs.env.paths.check_file)):
-                start_epoch = torch.load(os.path.join(path, self.name + msg + configs.env.paths.check_file))
+            main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
+            check_path = os.path.join(path, self.name + main_msg + configs.env.paths.check_file)
+            if os.path.exists(check_path):
+                check_data = torch.load(check_path)
+                start_epoch = check_data['epoch']
+                self.msg = check_data['msg']
+                self.main_msg = check_data['main_msg']
             else:
                 start_epoch = 0
         if start_epoch > 0:
-            v = self.__dict__.items()
-            for name, value in v:
-                if value.__class__.__base__ == nn.Module:
-                    self.__dict__[name].load_state_dict(torch.load(
-                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth')))
+            msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
+            for name, value in self.__dict__.items():
+                if value.__class__.__base__ == nn.Module or name in self._save_list:
+                    load_value = torch.load(
+                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'))
+                    if value.__class__.__base__ == nn.Module:
+                        self.__dict__[name].load_state_dict(load_value)
+                    else:
+                        self.__dict__[name] = load_value
         return start_epoch
 
-    def save(self, epoch, path=None, msg=None):
+    def save(self, epoch, path=None):
         path = path or self.path
-        msg = ('_' + str(msg)) if msg is not None else ''
         if not os.path.exists(path):
             os.makedirs(path)
-        v = self.__dict__.items()
-        for name, value in v:
+        msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
+        for name, value in self.__dict__.items():
             # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
-            if value.__class__.__base__ == nn.Module:
-                torch.save(value.state_dict(),
-                           os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
-        torch.save(epoch, os.path.join(path, self.name + msg + configs.env.paths.check_file))
+            if value.__class__.__base__ == nn.Module or name in self._save_list:
+                save_value = value.state_dict() if value.__class__.__base__ == nn.Module else value
+                torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
+        main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
+        torch.save(dict(epoch=epoch, msg=self.msg, main_msg=self.main_msg),
+                   os.path.join(path, self.name + main_msg + configs.env.paths.check_file))
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ import platform
 import os
 import configs
 
+from torch import Tensor
+
 
 class Logger(object):
 
@@ -43,3 +45,14 @@ class Logger(object):
 
     def info(self, msg):
         self.logger.info(msg)
+
+    def info_scalars(self, msg: str, infos: tuple, scalars: dict):
+        scalars_list = list()
+        if scalars:
+            for name, value in scalars.items():
+                if not name.startswith('_'):
+                    msg += ' ' + name + ': {:.6f}'
+                    if isinstance(value, Tensor):
+                        value = value.item()
+                    scalars_list.append(value)
+        self.info(msg.format(*infos, *scalars_list))
