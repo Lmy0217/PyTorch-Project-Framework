@@ -1,5 +1,6 @@
 from .BaseDataset import *
 from .BaseTest import *
+from . import functional
 
 from .MNIST import MNIST
 

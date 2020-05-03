@@ -1,6 +1,7 @@
 from .BaseModel import *
 from .BaseTest import *
 
+from . import functional
 from . import shallow
 from . import layers
 from . import optimizers
@@ -19,4 +20,4 @@ def allcfgs():
 
 def find(name):
     model = getattr(models, name, None)
-    return model if model is not None and model.__base__ == BaseModel else None
+    return model if model is not None and issubclass(model, BaseModel) else None
