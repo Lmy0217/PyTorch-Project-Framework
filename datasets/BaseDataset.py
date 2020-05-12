@@ -1,19 +1,21 @@
 from typing import Union
 from torch.utils.data import Dataset
+import abc
 import torch
 import numpy as np
 import math
 import os
 import configs
 import datasets
+import utils
 
 
-class BaseDataset(Dataset):
+class BaseDataset(Dataset, metaclass=abc.ABCMeta):
 
     def __init__(self, cfg, **kwargs):
         self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]
         self.cfg = self.more(self._more(cfg))
-        self.data, self.cfg.data_count = self._load()
+        self.data, self.cfg.data_count = self.load()
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -29,42 +31,15 @@ class BaseDataset(Dataset):
     def more(cfg):
         return cfg
 
-    def _load(self):
+    @abc.abstractmethod
+    def load(self):
         raise NotImplementedError
 
     def _path(self, index):
         paths = self.cfg.paths
         file_count = paths.file_count if isinstance(paths.file_count, list) else [paths.file_count]
         index = index if isinstance(index, list) else [index]
-        path_dict = dict()
-        for name, value in vars(paths).items():
-            if isinstance(value, str):
-                path_dict[name] = list(value)
-                if len(path_dict[name]) < 1:
-                    raise ValueError
-        for name, l in path_dict.items():
-            l_index, l_index_start, l_index_count, l_flag = -1, -1, 0, False
-            for i, d in enumerate(l):
-                if d == '?':
-                    if not l_flag:
-                        l_index, l_index_start, l_flag = l_index + 1, i, True
-                    l_index_count += 1
-                else:
-                    if l_flag:
-                        if index[l_index] < 1 or index[l_index] > file_count[l_index] or \
-                                len(str(index[l_index])) > l_index_count:
-                            raise ValueError
-                        for ii, ss in enumerate(list(str(index[l_index]).zfill(l_index_count))):
-                            l[l_index_start + ii] = ss
-                        l_index_count, l_flag = 0, False
-            if l_flag:
-                if index[l_index] < 1 or index[l_index] > file_count[l_index] or \
-                        len(str(index[l_index])) > l_index_count:
-                    raise ValueError
-                for ii, ss in enumerate(list(str(index[l_index]).zfill(l_index_count))):
-                    l[l_index_start + ii] = ss
-            path_dict[name] = ''.join(l)
-        return path_dict
+        return utils.path.comp_path(vars(paths), file_count, index)
 
     # TODO remove to init
     def set_logger(self, logger):
@@ -72,12 +47,15 @@ class BaseDataset(Dataset):
         if hasattr(self, 'super_dataset') and isinstance(self.super_dataset, BaseDataset):
             self.super_dataset.set_logger(logger)
 
+    def set_summary(self, summary):
+        self.summary = summary
+
     @staticmethod
     def need_norm(data_shape):
-        eles = 1
         for n in data_shape[1:]:
-            eles *= n
-        return eles > 1
+            if n > 1:
+                return True
+        return False
 
     @staticmethod
     def meanstd(data):
@@ -98,6 +76,7 @@ class BaseDataset(Dataset):
                     ms_dict[split_items[1][idx]] = ms_dict[name]
         if hasattr(self, 'logger'):
             self.logger.info(ms_dict)
+            self.logger.save_mat(self.name + configs.env.paths.ms_file, ms_dict)
         return ms_dict
 
     def _norm(self):
@@ -157,14 +136,19 @@ class BaseDataset(Dataset):
         return args_dict
 
     def _recover(self, index):
-        # TODO automatic recognition of data name
         index_dict = dict()
-        if hasattr(self.cfg, 'source'):
-            index_dict['source'] = [0, self.cfg.source.time, 0, self.cfg.source.width, 0, self.cfg.source.height] \
-                if self.cfg.source.elements > 1 else [0, self.cfg.source.elements]
-        if hasattr(self.cfg, 'target'):
-            index_dict['target'] = [0, self.cfg.target.time, 0, self.cfg.target.width, 0, self.cfg.target.height] \
-                if self.cfg.target.elements > 1 else [0, self.cfg.target.elements]
+        for key, value in self.cfg.dict().items():
+            if key not in ['out', 'kernel'] and isinstance(value, configs.BaseConfig):
+                if hasattr(value, 'width') and hasattr(value, 'height'):
+                    if hasattr(value, 'time'):
+                        if hasattr(value, 'patch'):
+                            index_dict[key] = [0, value.patch, 0, value.time, 0, value.width, 0, value.height]
+                        else:
+                            index_dict[key] = [0, value.time, 0, value.width, 0, value.height]
+                    else:
+                        index_dict[key] = [0, value.width, 0, value.height]
+                elif hasattr(value, 'elements'):
+                    index_dict[key] = [0, value.elements]
         return [index], index_dict
 
     def recover(self, index):
@@ -248,6 +232,8 @@ class BaseSplit(Dataset):
         self.raw_count = self.count // self.dataset.cfg.out.elements
         if hasattr(self.dataset, 'logger'):
             self.set_logger(self.dataset.logger)
+        if hasattr(self.dataset, 'summary'):
+            self.set_summary(self.dataset.summary)
 
     def _index(self, index_range_set):
         indexset, lengthset, offset, off = list(), list(), list(), 0
@@ -276,6 +262,9 @@ class BaseSplit(Dataset):
 
     def set_logger(self, logger):
         self.logger = logger
+
+    def set_summary(self, summary):
+        self.summary = summary
 
 
 class SampleDataset(Dataset):

@@ -1,19 +1,22 @@
 import torch
 import models
 import configs
+import abc
 import scipy.io
 import numpy as np
 import os
 
+from models.shallow import NoiseTest
 
-__all__ = ['AdaBoost_Image']
+
+__all__ = ['AdaBoost_Image', 'AdaBoost_Image_NoiseTest']
 
 
-class AdaBoost_Image(models.BaseModel):
+class AdaBoost_Image(models.BaseModel, metaclass=abc.ABCMeta):
 
     def __init__(self, cfg, data_cfg, run, **kwargs):
         super().__init__(cfg, data_cfg, run, **kwargs)
-        assert hasattr(cfg, 'return_list')
+        assert hasattr(self.cfg, 'return_list')
         self._save_list.append('boost')
         self.boost = configs.BaseConfig(dict(
             name=self.__class__.__name__,
@@ -35,6 +38,7 @@ class AdaBoost_Image(models.BaseModel):
         weight = self.boost.weight.gather(0, self.boost.index)
         return weight @ loss
 
+    @abc.abstractmethod
     def comp_score(self, epoch_info, sample_dict):
         raise NotImplementedError
 
@@ -54,7 +58,7 @@ class AdaBoost_Image(models.BaseModel):
                 self.boost.error.append(error)
                 self.boost.alpha.append(alpha)
 
-                self.boost.weight *= torch.exp((self.boost.scores * 2 - 1) * alpha) # need detach
+                self.boost.weight *= torch.exp((self.boost.scores * 2 - 1) * alpha)  # need detach
                 assert torch.sum(self.boost.weight) != 0
                 self.boost.weight /= torch.sum(self.boost.weight)
 
@@ -78,4 +82,16 @@ class AdaBoost_Image(models.BaseModel):
                     return_all[return_name] = \
                         (pre_return_all[return_name] * pre_sum_alpha + return_all[return_name]
                          * self.boost.alpha[-1].item()) / (pre_sum_alpha + self.boost.alpha[-1].item())
+        return return_all
+
+
+class AdaBoost_Image_NoiseTest(AdaBoost_Image, NoiseTest):
+
+    def test_return_hook(self, epoch_info, return_all):
+        if 'NoiseTest' in self.msg.keys():
+            noise_msg = self.msg.pop('NoiseTest')
+            return_all = super().test_return_hook(epoch_info, return_all)
+            self.msg['NoiseTest'] = noise_msg
+        else:
+            return_all = super().test_return_hook(epoch_info, return_all)
         return return_all

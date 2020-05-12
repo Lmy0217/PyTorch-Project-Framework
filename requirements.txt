@@ -1,6 +1,6 @@
 numpy
 scipy
 scikit-image
+imageio
 h5py
-Pillow<7.0.0
 tensorboard

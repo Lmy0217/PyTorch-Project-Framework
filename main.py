@@ -3,7 +3,6 @@ import argparse
 import torch
 import os
 import time
-import scipy.io
 import numpy as np
 import configs
 import datasets
@@ -43,6 +42,8 @@ class Main(object):
 
         self.logger = utils.Logger(self.path, utils.path.get_filename(self.model_cfg._path))
         self.dataset.set_logger(self.logger)
+        self.summary = utils.Summary(self.path, dataset=self.dataset)
+        self.dataset.set_summary(self.summary)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
         # more than one num_workers, use screen to detach
@@ -53,8 +54,6 @@ class Main(object):
         self.test_loader = DataLoader(self.testset, batch_size=self.run_cfg.batch_size, shuffle=False,
                                        num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
             if len(self.testset) > 0 else list()
-
-        self.summary = utils.Summary(self.path, dataset=self.dataset)
 
         self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
                                                       summary=self.summary, main_msg=self.msg)
@@ -87,7 +86,7 @@ class Main(object):
             self.summary.update_epochinfo(epoch_info)
             loss_dict = self.model.train_process(epoch_info, sample_dict)
             loss_dict.update(dict(_count=_count))
-            utils.merge_dict(loss_all, loss_dict)
+            utils.common.merge_dict(loss_all, loss_dict)
             count += _count
             # TODO more scalars?
             # self.summary.add_scalars('Losses', loss_dict, (epoch - 1) * batch_per_epoch + batch_idx + 1)
@@ -192,8 +191,7 @@ class Main(object):
         predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
                                     + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
                                     + configs.env.paths.predict_file)
-        if predict:
-            scipy.io.savemat(predict_file, predict)
+        self.logger.save_mat(predict_file, predict)
 
 
 if __name__ == '__main__':

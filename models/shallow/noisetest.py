@@ -3,13 +3,15 @@ import configs
 import models
 
 
+__all__ = ['NoiseTest']
+
+
 class NoiseTest(models.BaseModel):
-    """TODO test"""
 
     def __init__(self, cfg, data_cfg, run, **kwargs):
         super().__init__(cfg, data_cfg, run, **kwargs)
-        assert hasattr(cfg, 'input_list')
         assert hasattr(self.cfg, 'noise_times')
+        assert hasattr(self.cfg, 'input_list')
         self.noise_test = configs.BaseConfig(dict(
             name=self.__class__.__name__,
             times=self.cfg.noise_times,

@@ -9,9 +9,11 @@ from . import optimizers
 from .wgan_gp import WGAN_GP
 from .lenet import LeNet
 
+import utils
+
 
 def all():
-    return models.BaseModel.__subclasses__()
+    return utils.common.all_subclasses_not_abstract(BaseModel)
 
 
 def allcfgs():

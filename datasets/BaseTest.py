@@ -13,10 +13,13 @@ class BaseTest(object):
         for dataset_cfg in datasets.allcfgs():
             if hasattr(dataset_cfg, 'name') and dataset_cfg.name == self.dataset.__name__:
                 dataset_name = os.path.splitext(os.path.split(dataset_cfg._path)[1])[0]
-                logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test'), dataset_name)
+                save_folder = os.path.join(os.path.dirname(__file__), 'test', dataset_name)
+                logger = utils.Logger(save_folder, dataset_name)
                 logger.info('Testing dataset: ' + dataset_name + ' ...')
                 dataset = self.dataset(dataset_cfg)
                 dataset.set_logger(logger)
+                summary = utils.Summary(save_folder, dataset=dataset)
+                dataset.set_summary(summary)
                 trainset, testset = dataset.split(
                     index_cross=min(dataset.cfg.cross_folder, 1) if hasattr(dataset.cfg, 'cross_folder') else None)
 

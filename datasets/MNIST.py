@@ -23,7 +23,7 @@ class MNIST(datasets.BaseDataset):
         cfg.index_cross = 0
         return cfg
 
-    def _load(self):
+    def load(self):
         train = Datasets.MNIST(self.cfg.path, train=True, download=True)
         test = Datasets.MNIST(self.cfg.path, train=False, download=True)
 

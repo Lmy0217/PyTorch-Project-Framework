@@ -4,6 +4,8 @@ from . import functional
 
 from .MNIST import MNIST
 
+import utils
+
 
 def more(cfg):
     dataset = getattr(datasets, cfg.name, None)
@@ -16,7 +18,7 @@ def allcfgs():
 
 
 def all():
-    return datasets.BaseDataset.__subclasses__()
+    return utils.common.all_subclasses_not_abstract(BaseDataset)
 
 
 def find(name):

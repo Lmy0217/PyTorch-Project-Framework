@@ -1,6 +1,7 @@
 import logging
 import platform
 import os
+import scipy.io
 import configs
 
 from torch import Tensor
@@ -56,3 +57,6 @@ class Logger(object):
                         value = value.item()
                     scalars_list.append(value)
         self.info(msg.format(*infos, *scalars_list))
+
+    def save_mat(self, filename, data):
+        scipy.io.savemat(os.path.join(self.path, filename), data)

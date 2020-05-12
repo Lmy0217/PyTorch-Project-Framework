@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch
+import abc
 import os
 import configs
 import models
@@ -22,11 +23,12 @@ class _MainHook(object):
         msg.update((dict(test_flag=False)))
 
 
-class _ProcessHook(object):
+class _ProcessHook(object, metaclass=abc.ABCMeta):
 
     def train_pre_hook(self, epoch_info: dict, sample_dict: dict):
         return sample_dict
 
+    @abc.abstractmethod
     def train(self, epoch_info: dict, sample_dict: dict):
         raise NotImplementedError
 
@@ -51,6 +53,7 @@ class _ProcessHook(object):
     def test_pre_hook(self, epoch_info: dict, sample_dict: dict):
         return sample_dict
 
+    @abc.abstractmethod
     def test(self, epoch_info: dict, sample_dict: dict):
         raise NotImplementedError
 

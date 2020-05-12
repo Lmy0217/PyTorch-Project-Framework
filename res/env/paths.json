@@ -7,7 +7,7 @@
   "test_folder": "test",
   "tensorboard_folder": "tensorboard",
   "check_file": "_checkpoint.pth",
-  "ms_file": "_ms.pth",
+  "ms_file": "_ms.mat",
   "predict_file": "_predict.mat",
   "logging_file": "_logging.log"
 }

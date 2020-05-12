@@ -13,11 +13,14 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
   |    └── Run.py  - the loader of hyperparameter configuration file
   |
   ├── datasets
+  |    ├── functional  - the package of functional methods
   |    ├── BaseDataset.py  - the abstract class of all dataset
   |    ├── BaseTest.py  - the test class of all dataset
   |    └── ...  - any dataset of your project
   |
   ├── models
+  |    ├── functional  - the package of functional methods
+  |    ├── shallow  - the package of shallow methods
   |    ├── BaseModel.py  - the abstract class of all model
   |    ├── BaseTest.py  - the test class of all model
   |    └── ...  - any model of your project
@@ -28,12 +31,21 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
   |    ├── models  - the folder contains any json file of model configuration
   |    └── run  - the folder contains any json file of hyperparameter configuration
   |
+  ├── test
+  |    ├── test_configs.py  - the unittest classes of package configs
+  |    ├── test_datasets.py  - the unittest classes of package datasets
+  |    ├── test_models.py  - the unittest classes of package models
+  |    └── test_utils.py  - the unittest classes of package utils
+  |
   ├── utils
-  |    └── logger.py  - the logger class
+  |    ├── common.py  - the common methods
+  |    ├── logger.py  - the logger class
+  |    ├── summary.py  - the summary class
+  |    └── ...  - any utils of your project
   |
   ├── main.py  - the main class of framework
   |
-  └── test.py  - the global test class
+  └── test_component.py  - the global test class
 ```
 
 
@@ -44,7 +56,7 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
 
     Base dataset is an abstract class that must be Inherited by any dataset you create, the idea behind this is that there's much shared stuff between all datasets. The base dataset mainly contains:
   - `more`  - add / update unique configuration to dataset
-  - `_load`  - load dataset
+  - `load`  - load dataset
   - `_recover`  - split single data
   - `split`  - create trainset and testset
 
@@ -53,7 +65,7 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
 
     Here's where you implement your dataset. So you should:
   - Create your dataset class and inherit the `BaseDataset` class
-  - Override `_load` method
+  - Override `load` method
   - Override other methods if your need special implementation
   - Add your dataset name to `datasets/__init__.py`
   - Create json file of your dataset's configuration in `res/datasets/`
@@ -92,11 +104,11 @@ Here's how to use this framework, you should do the following:
 		    super(YourDataset, self).__init__(cfg, **kwargs)
 		```
 
-	- Override `_load` method to load dataset
+	- Override `load` method to load dataset
 
 		```python
 	    # In YourDataset class
-		def _load(self):
+		def load(self):
 	        """
 	        Here load your dataset
             The parameters in `cfg` are load from json file of your dataset's configuration
@@ -230,7 +242,7 @@ Here's how to use this framework, you should do the following:
 
 	    ```
 	    {
-	        "name": "hp1",
+	        "name": "YourHP",
             // Basic hyperparameter
             "batch_size": 32,
             "epochs": 200,
@@ -245,7 +257,7 @@ Here's how to use this framework, you should do the following:
     - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json`
 
 	    ```bash
-	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/yourhp.json"
+	    python3 -m main --d "res/datasets/yourdataset.json" --m "res/models/yourmodel.json" --r "res/run/yourhp.json"
 	    ```
 
     Every `save_step` epoch trained model and data which want to saved will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
@@ -253,7 +265,7 @@ Here's how to use this framework, you should do the following:
     - If you want to testing epoch 10
 
 	    ```bash
-	    python3 -m main --dataset_config_path "res/datasets/yourdataset.json" --model_config_path "res/models/yourmodel.json" --run_config_path "res/run/yourhp.json" --test_epoch 10
+	    python3 -m main --d "res/datasets/yourdataset.json" --m "res/models/yourmodel.json" --r "res/run/yourhp.json" --t 10
 	    ```
 
 ## Contributing

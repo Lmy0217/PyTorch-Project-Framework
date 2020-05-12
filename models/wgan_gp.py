@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch
 import models
-import configs
 
 
 __all__ = ['WGAN_GP']

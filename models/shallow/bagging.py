@@ -6,13 +6,18 @@ import scipy.io
 import configs
 import models
 
+from models.shallow import NoiseTest
+
+
+__all__ = ['Bagging', 'Bagging_NoiseTest']
+
 
 class Bagging(models.BaseModel):
-    """TODO test"""
 
     def __init__(self, cfg, data_cfg, run, **kwargs):
         super().__init__(cfg, data_cfg, run, **kwargs)
         assert hasattr(self.cfg, 'bag_times')
+        self.msg['Bagging'] = 'bag' + str(self.main_msg['while_idx'])
         self._save_list.append('bag')
         self.bag = configs.BaseConfig(dict(
             name=self.__class__.__name__,
@@ -51,3 +56,15 @@ class Bagging(models.BaseModel):
             msg['while_flag'] = False
         else:
             msg['while_idx'] += 1
+
+
+class Bagging_NoiseTest(Bagging, NoiseTest):
+
+    def test_return_hook(self, epoch_info, return_all):
+        if 'NoiseTest' in self.msg.keys():
+            noise_msg = self.msg.pop('NoiseTest')
+            return_all = super().test_return_hook(epoch_info, return_all)
+            self.msg['NoiseTest'] = noise_msg
+        else:
+            return_all = super().test_return_hook(epoch_info, return_all)
+        return return_all

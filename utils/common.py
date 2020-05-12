@@ -23,3 +23,22 @@ def merge_dict(dst: dict, src: dict):
             dst[key].append(value)
         else:
             dst[key] = [value]
+
+
+def all_subclasses(cls):
+    return list(set(cls.__subclasses__()).union([s for c in cls.__subclasses__() for s in all_subclasses(c)]))
+
+
+def is_abstract(cls):
+    return bool(getattr(cls, '__abstractmethods__', False))
+
+
+def all_subclasses_not_abstract(cls):
+    return [c for c in all_subclasses(cls) if not is_abstract(c)]
+
+
+def hasattrs(cls, attrs: list):
+    flag = True
+    for attr in attrs:
+        flag = flag and hasattr(cls, attr)
+    return flag

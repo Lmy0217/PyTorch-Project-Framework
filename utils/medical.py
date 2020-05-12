@@ -49,8 +49,8 @@ def cbf(dM: Union[torch.Tensor, np.ndarray], M0: Union[torch.Tensor, np.ndarray]
     CBF = CBF * 60 * 100 * 1000 * lamda
 
     CBF = module.where(CBF < 0, zeros, CBF)
-    CBF = module.where(CBF > maxPerfusion, zeros, CBF) # maxs
+    CBF = module.where(CBF > maxPerfusion, zeros, CBF)  # maxs
     CBF = module.where(module.isnan(CBF), zeros, CBF)
-    CBF = module.where(module.isinf(CBF), zeros, CBF) # maxs
+    CBF = module.where(module.isinf(CBF), zeros, CBF)  # maxs
 
     return CBF

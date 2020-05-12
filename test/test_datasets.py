@@ -16,12 +16,13 @@ class TestBaseDataset(unittest.TestCase):
                                 os.path.splitext(os.path.basename(__file__))[0], cls.__name__)
         if not os.path.exists(cls.path):
             os.makedirs(cls.path)
+        cls.data_count = 4
 
         class SimpleDataset(BaseDataset):
 
-            def _load(self):
-                return dict(test=np.transpose(np.tile(np.arange(env.ci.batchsize), (6, 1))),
-                            t2=np.tile(np.arange(6), (6, 1))), env.ci.batchsize
+            def load(self):
+                return dict(test=np.transpose(np.tile(np.arange(cls.data_count), (6, 1))),
+                            t2=np.tile(np.arange(6), (6, 1))), cls.data_count
 
             def _recover(self, index):
                 return [index], dict(test=[0, self.cfg.test.elements], t2=[0, self.cfg.t2.elements])
@@ -41,8 +42,8 @@ class TestBaseDataset(unittest.TestCase):
         self.assertEqual(self.dataset.name, 'test_configs')
         self.assertEqual(self.dataset.cfg.test.elements, 6)
         self.assertEqual(self.dataset.cfg.out.elements, 1)
-        self.assertEqual(self.dataset.data['test'].shape, (env.ci.batchsize, 6))
-        self.assertEqual(self.dataset.cfg.data_count, env.ci.batchsize, 6)
+        self.assertEqual(self.dataset.data['test'].shape, (self.data_count, 6))
+        self.assertEqual(self.dataset.cfg.data_count, self.data_count)
         self.assertEqual(self.dataset.t, 1)
 
     def test_path(self):
@@ -50,8 +51,8 @@ class TestBaseDataset(unittest.TestCase):
         self.assertEqual(self.dataset._path([2, 1]), dict(test='_*02_01'))
 
     def test_neednorm(self):
-        self.assertTrue(self.dataset.need_norm((env.ci.batchsize, 6)))
-        self.assertFalse(self.dataset.need_norm((env.ci.batchsize, 1, 1)))
+        self.assertTrue(self.dataset.need_norm((self.data_count, 6)))
+        self.assertFalse(self.dataset.need_norm((self.data_count, 1, 1)))
 
     def test_meanstd(self):
         meanstd = self.dataset.meanstd(self.dataset.data['test'])
@@ -78,7 +79,7 @@ class TestBaseDataset(unittest.TestCase):
         self.assertTrue((ms['t2'][1] == np.std([0, 1, 2])).all())
 
     def test_reset_norm(self):
-        raw_test = np.transpose(np.tile(np.arange(env.ci.batchsize), (6, 1)))
+        raw_test = np.transpose(np.tile(np.arange(self.data_count), (6, 1)))
         raw_t2 = np.tile(np.arange(6), (6, 1))
 
         self.assertEqual(self.dataset.cfg.norm, 'threshold')
@@ -182,7 +183,7 @@ class TestBaseDataset(unittest.TestCase):
         self.assertEqual(index, 1)
 
     def test_len(self):
-        self.assertEqual(len(self.dataset), env.ci.batchsize)
+        self.assertEqual(len(self.dataset), self.data_count)
 
     def test_cross(self):
         old_cross_folder = self.dataset.cfg.cross_folder

@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 import torch
 import os
+import shutil
 import configs
 import datasets
 import models
@@ -12,11 +13,11 @@ class BaseTest(object):
     def __init__(self, model):
         self.model = model
 
-    def run(self):
+    def run(self, rm_save_folder=False):
         for model_cfg in models.allcfgs():
             if hasattr(model_cfg, 'name') and model_cfg.name == self.model.__name__:
                 model_name = os.path.splitext(os.path.split(model_cfg._path)[1])[0]
-                logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test'), model_name)
+                logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test', model_name), model_name)
                 logger.info('Testing model: ' + model_name + ' ...')
                 for data_cfg in datasets.allcfgs():
                     if not self.model.check_cfg(data_cfg, model_cfg):
@@ -29,13 +30,16 @@ class BaseTest(object):
                     for name, value in vars(data_cfg).items():
                         if name.startswith('source') or name.startswith('target'):
                             kernel = getattr(data_cfg, 'kernel' if name.startswith('source') else 'out_kernel', None)
-                            # TODO support 4-dim
                             if kernel is not None:
                                 sample_shape = (kernel.kT, kernel.kW, kernel.kH)
                                 sample_dict[name] = torch.randn(configs.env.ci.batchsize, *sample_shape)
                             else:
-                                sample_shape = (value.time, value.width, value.height) \
-                                    if hasattr(value, 'time') else [value.elements]
+                                if hasattr(value, 'patch'):
+                                    sample_shape = (value.patch, value.time, value.width, value.height)
+                                elif hasattr(value, 'time'):
+                                    sample_shape = (value.time, value.width, value.height)
+                                else:
+                                    sample_shape = (value.elements,)
                                 # TODO re-ID target class in [-1, 1] not in [0, 1]
                                 sample_dict[name] = torch.randint(value.classes, (configs.env.ci.batchsize, 1)).long() \
                                     if len(sample_shape) == 1 and sample_shape[0] == 1 \
@@ -46,18 +50,22 @@ class BaseTest(object):
                                 data_cfg, 'test_kernel' if name.startswith('test_source') else 'test_out_kernel', None)
                             if test_kernel is not None:
                                 test_sample_shape = (test_kernel.kT, test_kernel.kW, test_kernel.kH)
-                                test_sample_dict[name[5:]] = torch.randn(configs.env.ci.batchsize, *test_sample_shape)
+                                test_sample_dict[name[5:]] = torch.randn(1, *test_sample_shape)
                             else:
-                                test_sample_shape = (value.time, value.width, value.height) \
-                                    if hasattr(value, 'time') else [value.elements]
+                                if hasattr(value, 'patch'):
+                                    test_sample_shape = (value.patch, value.time, value.width, value.height)
+                                elif hasattr(value, 'time'):
+                                    test_sample_shape = (value.time, value.width, value.height)
+                                else:
+                                    test_sample_shape = (value.elements,)
                                 test_sample_dict[name[5:]] = \
-                                    torch.randint(value.classes, (configs.env.ci.batchsize, 1)).long() \
+                                    torch.randint(value.classes, (1, 1)).long() \
                                         if len(test_sample_shape) == 1 and test_sample_shape[0] == 1 \
-                                        else torch.randn(configs.env.ci.batchsize, *test_sample_shape)
+                                        else torch.randn(1, *test_sample_shape)
                             logger.info("\t-- " + name + " size: " + str(test_sample_dict[name[5:]].size()))
                     for name, value in sample_dict.items():
                         if name not in test_sample_dict.keys():
-                            test_sample_dict[name] = value
+                            test_sample_dict[name] = value[0:1]
                     sample_loader = DataLoader(datasets.SampleDataset(sample_dict), pin_memory=True)
                     test_sample_loader = DataLoader(datasets.SampleDataset(test_sample_dict), pin_memory=True)
 
@@ -92,7 +100,7 @@ class BaseTest(object):
                             loss_all = dict()
                             loss_dict = model.train_process(epoch_info, sample_dict)
                             loss_dict.update(dict(_count=[configs.env.ci.batchsize]))
-                            utils.merge_dict(loss_all, loss_dict)
+                            utils.common.merge_dict(loss_all, loss_dict)
                             model.train_epoch_hook(epoch_info, sample_loader)
                             loss_all = model.train_return_hook(epoch_info, loss_all)
                             logger.info("\t\t-- loss(es) " + str(main_msg['while_idx']) + ": " + str(loss_all))
@@ -101,6 +109,7 @@ class BaseTest(object):
                             while model.main_msg['test_flag']:
                                 torch.cuda.empty_cache()
                                 test_sample_loader = model.test_loader_hook(test_sample_loader)
+                                epoch_info.update(dict(index=torch.arange(1), batch_count=1, count_data=1))
                                 model.test_epoch_pre_hook(epoch_info, test_sample_loader)
                                 result_dict = model.test_process(epoch_info, test_sample_dict)
                                 model.test_epoch_hook(epoch_info, test_sample_loader)
@@ -128,6 +137,8 @@ class BaseTest(object):
 
                         model.save(epoch=1, path=save_folder)
                         model.load(path=save_folder)
+                        if rm_save_folder:
+                            shutil.rmtree(save_folder)
                         logger.info('\t\tTesting config: ' + run_name + ' completed.')
                         break
                     logger.info('\tTesting dataset: ' + data_name + ' completed.')
