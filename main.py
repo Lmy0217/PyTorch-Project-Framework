@@ -196,13 +196,13 @@ class Main(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Template')
-    parser.add_argument('--model_config_path', '-m', type=str, required=True, metavar='/path/to/model/config.json',
+    parser.add_argument('-m', '--model_config_path', type=str, required=True, metavar='/path/to/model/config.json',
                         help='Path to model config .json file')
-    parser.add_argument('--run_config_path', '-r', type=str, required=True, metavar='/path/to/run/config.json',
+    parser.add_argument('-r', '--run_config_path', type=str, required=True, metavar='/path/to/run/config.json',
                         help='Path to run config .json file')
-    parser.add_argument('--dataset_config_path', '-d', type=str, required=True, metavar='/path/to/dataset/config.json',
+    parser.add_argument('-d', '--dataset_config_path', type=str, required=True, metavar='/path/to/dataset/config.json',
                         help='Path to dataset config .json file')
-    parser.add_argument('--test_epoch', '-t', type=int, metavar='epoch want to test', help='epoch want to test')
+    parser.add_argument('-t', '--test_epoch', type=int, metavar='epoch want to test', help='epoch want to test')
     parser.add_argument('--ci', action='store_false' if configs.env.ci.run else 'store_true',
                         default=configs.env.ci.run, help='running CI')
     args = parser.parse_args()
