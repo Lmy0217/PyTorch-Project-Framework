@@ -7,11 +7,15 @@ __all__ = ['BaseConfig']
 
 class BaseConfig(object):
 
+    _path: str
+    name: str
+
     def __init__(self, cfg: Union[dict, str], **kwargs):
         self._space = 0
         self._load(cfg) if isinstance(cfg, dict) else self._fromfile(cfg)
 
-    def _values(self, key: str):
+    @staticmethod
+    def _values(key: str):
         return not (key.startswith('_') or key == 'name')
 
     def dict(self):
@@ -25,10 +29,10 @@ class BaseConfig(object):
         if isinstance(other, self.__class__):
             for key in vars(other).keys():
                 if other._values(key) and not hasattr(self, key):
-                        return False
+                    return False
             for key, value in vars(self).items():
                 if self._values(key) and (not hasattr(other, key) or value != getattr(other, key)):
-                        return False
+                    return False
             return True
         else:
             return False

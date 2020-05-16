@@ -7,6 +7,10 @@ __all__ = ['Run']
 
 class Run(configs.BaseConfig):
 
+    epochs: int
+    save_step: int
+    batch_size: int
+
     def __init__(self, cfg):
         super(Run, self).__init__(cfg)
         self._more()

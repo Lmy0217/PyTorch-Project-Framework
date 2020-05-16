@@ -15,7 +15,8 @@ class Env(configs.BaseConfig):
         for file in os.listdir(cfg_dir):
             setattr(self, os.path.splitext(file)[0], configs.BaseConfig(os.path.join(cfg_dir, file)))
         if hasattr(self, 'paths') and hasattr(self.paths, 'root_folder'):
-            self.paths.root_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', self.paths.root_folder))
+            self.paths.root_folder = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), '..', self.paths.root_folder))
         else:
             raise ValueError('Lack of `res/env/paths.json` file or `root_folder` value')
 
