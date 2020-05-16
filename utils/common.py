@@ -1,4 +1,5 @@
 import copy
+import functools
 import torch
 
 
@@ -25,8 +26,21 @@ def merge_dict(dst: dict, src: dict):
             dst[key] = [value]
 
 
+def _all_subclasses(cls):
+    return list(set(cls.__subclasses__()).union([s for c in cls.__subclasses__() for s in _all_subclasses(c)]))
+
+
+def cmp_class(cls1: type, cls2: type):
+    if cls1.__name__ < cls2.__name__:
+        return -1
+    if cls1.__name__ > cls2.__name__:
+        return 1
+    return 0
+
+
 def all_subclasses(cls):
-    return list(set(cls.__subclasses__()).union([s for c in cls.__subclasses__() for s in all_subclasses(c)]))
+    all_sub = _all_subclasses(cls)
+    return sorted(all_sub, key=functools.cmp_to_key(cmp_class))
 
 
 def is_abstract(cls):

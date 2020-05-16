@@ -5,7 +5,8 @@ import torch
 import numpy as np
 
 from configs import BaseConfig, env
-from utils.common import deepcopy, merge_dict, all_subclasses, is_abstract, all_subclasses_not_abstract, hasattrs
+from utils.common import deepcopy, merge_dict, _all_subclasses, cmp_class, all_subclasses, is_abstract, \
+    all_subclasses_not_abstract, hasattrs
 from utils.path import get_filename, get_path, comp_path
 from utils.image import _2dto3d, sobel3d, laplace3d
 from utils.medical import cbf
@@ -40,6 +41,29 @@ class TestCommon(unittest.TestCase):
         merge_dict(a, dict(c=1.0))
         self.assertEqual(a, dict(c=[1, 1.0]))
 
+    def test_all_subclasses_(self):
+        A = type('A', (object,), dict())
+        B = type('B', (A,), dict())
+        C = type('C', (B,), dict())
+        D = type('D', (A,), dict())
+
+        subclasses = _all_subclasses(A)
+        self.assertTrue(B in subclasses)
+        self.assertTrue(C in subclasses)
+        self.assertTrue(D in subclasses)
+        self.assertEqual(len(subclasses), 3)
+
+    def test_cmp_class(self):
+        class A:
+            pass
+
+        class B:
+            pass
+
+        self.assertEqual(cmp_class(A, B), -1)
+        self.assertEqual(cmp_class(B, A), 1)
+        self.assertEqual(cmp_class(A, A), 0)
+
     def test_all_subclasses(self):
         A = type('A', (object,), dict())
         B = type('B', (A,), dict())
@@ -47,10 +71,7 @@ class TestCommon(unittest.TestCase):
         D = type('D', (A,), dict())
 
         subclasses = all_subclasses(A)
-        self.assertTrue(B in subclasses)
-        self.assertTrue(C in subclasses)
-        self.assertTrue(D in subclasses)
-        self.assertEqual(len(subclasses), 3)
+        self.assertEqual(subclasses, [B, C, D])
 
     def test_is_abstract(self):
         class A(abc.ABC):
