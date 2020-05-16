@@ -1,26 +1,22 @@
-# Python CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-python/ for more details
-#
 version: 2.1
+
+workflows:
+  test:
+    jobs:
+      - test-py36
+      - test-py37
+      - test-py38
+
 jobs:
-  build:
+  test-py36: &test-template
     docker:
-      # specify the version you desire here
-      # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
-      - image: circleci/python:3.6.4
-      
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      # - image: circleci/postgres:9.4
+      - image: circleci/python:3.6
 
     working_directory: ~/repo
 
     steps:
       - checkout
 
-      # Download and cache dependencies
       - restore_cache:
           keys:
           - v1-dependencies-{{ checksum "requirements.txt" }}
@@ -40,19 +36,34 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "requirements.txt" }}
 
-      # run tests!
-      # this example uses Django's built-in test-runner
-      # other common Python testing frameworks include pytest and nose
-      # https://pytest.org
-      # https://nose.readthedocs.io
       - run:
-          name: run tests
+          name: run unittest
           command: |
             . venv/bin/activate
             python -m unittest discover test
+
+      - run:
+          name: test components
+          command: |
+            . venv/bin/activate
             python -m test_component
+
+      - run:
+          name: test sample
+          command: |
+            . venv/bin/activate
             python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"
 
       - store_artifacts:
           path: test-reports
           destination: test-reports
+
+  test-py37:
+    <<: *test-template
+    docker:
+      - image: circleci/python:3.7
+
+  test-py38:
+    <<: *test-template
+    docker:
+      - image: circleci/python:3.8

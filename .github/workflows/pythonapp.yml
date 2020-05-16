@@ -1,4 +1,4 @@
-name: Python application
+name: Probot
 
 on: [push]
 
@@ -7,9 +7,9 @@ jobs:
 
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 2
+      max-parallel: 3
       matrix:
-        python-version: [3.6, 3.7]
+        python-version: [3.6, 3.7, 3.8]
 
     steps:
     - uses: actions/checkout@v1
@@ -36,7 +36,9 @@ jobs:
     - name: Test with unittest
       run: |
         python -m unittest discover test
-    - name: Test
+    - name: Test components
       run: |
         python -m test_component
+    - name: Test sample
+      run: |
         python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"
