@@ -15,7 +15,7 @@ import utils
 __all__ = [
     'BaseModel', 'BaseTest', 'functional', 'find', 'all', 'allcfgs',
 
-    'shallow', 'layers', 'optimizers', 'OnlyTest',
+    'shallow', 'layers', 'optimizers',
 
     'LeNet',
 
