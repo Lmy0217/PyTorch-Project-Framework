@@ -7,6 +7,15 @@ from .MNIST import MNIST
 import utils
 
 
+__all__ = [
+    'BaseDataset', 'BaseSplit', 'BaseTest', 'functional', 'more', 'find', 'all', 'allcfgs',
+
+    'SampleDataset',
+
+    'MNIST'
+]
+
+
 def more(cfg):
     dataset = getattr(datasets, cfg.name, None)
     return dataset.more(dataset._more(cfg)) if dataset else cfg

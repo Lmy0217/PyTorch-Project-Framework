@@ -10,6 +10,9 @@ from models import BaseModel
 from models.functional.algorithm import correct
 
 
+__all__ = ['TestBaseModel', 'TestFunctional_algorithm']
+
+
 class TestBaseModel(unittest.TestCase):
 
     @classmethod

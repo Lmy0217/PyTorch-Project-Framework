@@ -7,6 +7,9 @@ from .Env import env
 from .Run import Run
 
 
+__all__ = ['BaseConfig', 'BaseTest', 'Run', 'env', 'all']
+
+
 def all(config, cfg_dir):
     if not os.path.exists(cfg_dir):
         os.makedirs(cfg_dir)

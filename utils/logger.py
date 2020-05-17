@@ -7,6 +7,9 @@ import configs
 from torch import Tensor
 
 
+__all__ = ['Logger']
+
+
 class Logger(object):
 
     def __init__(self, path, prefix):

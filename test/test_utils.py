@@ -12,6 +12,9 @@ from utils.image import _2dto3d, sobel3d, laplace3d
 from utils.medical import cbf
 
 
+__all__ = ['TestLogger', 'TestSummary', 'TestCommon', 'TestPath', 'TestImage', 'TestMedical']
+
+
 class TestCommon(unittest.TestCase):
 
     def test_deepcopy(self):

@@ -6,6 +6,9 @@ import torch
 from configs import all, BaseConfig, env, Run
 
 
+__all__ = ['TestInit', 'TestBaseConfig', 'TestEnv', 'TestRun']
+
+
 class TestInit(unittest.TestCase):
 
     @classmethod

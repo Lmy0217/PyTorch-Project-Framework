@@ -4,6 +4,9 @@ import os
 import numpy as np
 
 
+__all__ = ['BaseTest']
+
+
 class BaseTest(object):
 
     def __init__(self, dataset):

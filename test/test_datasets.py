@@ -8,6 +8,9 @@ from datasets import BaseDataset, SampleDataset
 from datasets.functional import norm
 
 
+__all__ = ['TestBaseDataset', 'TestSampleDataset', 'TestFunctional_norm']
+
+
 class TestBaseDataset(unittest.TestCase):
 
     @classmethod

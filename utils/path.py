@@ -2,6 +2,9 @@ import os
 import configs
 
 
+__all__ = ['get_filename', 'get_path', 'comp_path']
+
+
 def get_filename(path):
     return os.path.splitext(os.path.split(path)[1])[0]
 

@@ -4,6 +4,12 @@ import torch
 import torch.nn.functional as F
 
 
+__all__ = [
+    '_2dto3d',
+    'sobel3d', 'laplace3d'
+]
+
+
 def _2dto3d(sample):
     assert sample.ndim == 4
     return sample[:, np.newaxis, :, :, :]

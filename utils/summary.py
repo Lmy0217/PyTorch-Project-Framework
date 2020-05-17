@@ -4,6 +4,9 @@ import os
 import configs
 
 
+__all__ = ['Summary']
+
+
 class Summary(object):
 
     def __init__(self, path, dataset=None):

@@ -12,6 +12,17 @@ from .lenet import LeNet
 import utils
 
 
+__all__ = [
+    'BaseModel', 'BaseTest', 'functional', 'find', 'all', 'allcfgs',
+
+    'shallow', 'layers', 'optimizers', 'OnlyTest',
+
+    'LeNet',
+
+    'WGAN_GP'
+]
+
+
 def all():
     return utils.common.all_subclasses_not_abstract(BaseModel)
 

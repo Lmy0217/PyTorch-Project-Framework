@@ -1,6 +1,9 @@
 import torch.nn.functional as F
 
 
+__all__ = ['correct']
+
+
 def correct(validity, label, softmax=True, return_label=True):
     if softmax:
         validity = F.softmax(validity, dim=1)

@@ -8,6 +8,9 @@ import models
 import utils
 
 
+__all__ = ['BaseTest']
+
+
 class BaseTest(object):
 
     def __init__(self, model):
