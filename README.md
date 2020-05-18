@@ -173,7 +173,7 @@ Here's how to use this framework, you should do the following:
     - Override two methods `train` and `test` to write the logic of the training and testing process
 
         ```python
-        # In YourDataset class
+        # In YourModel class
         def train(self, batch_idx, sample_dict):
             """
             batch_idx: the index of batch
