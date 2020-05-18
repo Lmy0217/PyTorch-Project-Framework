@@ -26,7 +26,7 @@ class Test(object):
 
     def test_models(self):
         self._path('models')
-        for model in models.all():
+        for model in models.functional.common.all():
             models.BaseTest(model).run(rm_save_folder=True)
 
     def test_configs(self):
@@ -44,7 +44,7 @@ class Test(object):
 
     def test_datasets(self):
         self._path('datasets')
-        for dataset in datasets.all():
+        for dataset in datasets.functional.common.all():
             datasets.BaseTest(dataset).run()
 
 

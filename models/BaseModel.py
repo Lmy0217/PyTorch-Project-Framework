@@ -8,6 +8,9 @@ import models
 import utils
 
 
+__all__ = ['BaseModel']
+
+
 class _MainHook(object):
 
     def process_pre_hook(self):
@@ -77,6 +80,9 @@ class _ProcessHook(object, metaclass=abc.ABCMeta):
 
 
 class BaseModel(_ProcessHook, _MainHook):
+
+    summary: utils.Summary
+    main_msg: dict
 
     def __init__(self, cfg, data_cfg, run, **kwargs):
         self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]

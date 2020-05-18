@@ -17,7 +17,7 @@ class Main(object):
         self.args = args
         self.model_cfg = configs.BaseConfig(args.model_config_path)
         self.run_cfg = configs.Run(args.run_config_path)
-        self.dataset_cfg = datasets.more(configs.BaseConfig(args.dataset_config_path))
+        self.dataset_cfg = datasets.functional.common.more(configs.BaseConfig(args.dataset_config_path))
 
         self._init()
         self._get_component()
@@ -29,7 +29,7 @@ class Main(object):
         self.msg = dict(ci='ci' if configs.env.ci.run else None)
 
     def _get_component(self):
-        self.dataset = datasets.find(self.dataset_cfg.name)(self.dataset_cfg)
+        self.dataset = datasets.functional.common.find(self.dataset_cfg.name)(self.dataset_cfg)
 
     def show_cfgs(self):
         self.logger.info(self.model.cfg)
@@ -55,8 +55,8 @@ class Main(object):
                                        num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
             if len(self.testset) > 0 else list()
 
-        self.model = models.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
-                                                      summary=self.summary, main_msg=self.msg)
+        self.model = models.functional.common.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
+                                                                        summary=self.summary, main_msg=self.msg)
         self.start_epoch = self.model.load(self.args.test_epoch)
 
         self.show_cfgs()

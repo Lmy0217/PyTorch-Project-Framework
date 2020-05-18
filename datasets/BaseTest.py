@@ -13,7 +13,7 @@ class BaseTest(object):
         self.dataset = dataset
 
     def run(self):
-        for dataset_cfg in datasets.allcfgs():
+        for dataset_cfg in datasets.functional.common.allcfgs():
             if hasattr(dataset_cfg, 'name') and dataset_cfg.name == self.dataset.__name__:
                 dataset_name = os.path.splitext(os.path.split(dataset_cfg._path)[1])[0]
                 save_folder = os.path.join(os.path.dirname(__file__), 'test', dataset_name)

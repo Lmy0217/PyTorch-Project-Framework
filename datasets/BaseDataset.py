@@ -10,7 +10,13 @@ import datasets
 import utils
 
 
+__all__ = ['BaseDataset', 'BaseSplit', 'SampleDataset']
+
+
 class BaseDataset(Dataset, metaclass=abc.ABCMeta):
+
+    logger: utils.Logger
+    summary: utils.Summary
 
     def __init__(self, cfg, **kwargs):
         self.name = os.path.splitext(os.path.split(cfg._path)[1])[0]
@@ -283,5 +289,5 @@ class SampleDataset(Dataset):
 
 
 if __name__ == "__main__":
-    print(datasets.all())
-    print(datasets.allcfgs())
+    print(datasets.functional.common.all())
+    print(datasets.functional.common.allcfgs())

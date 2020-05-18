@@ -1,5 +1,5 @@
-from .BaseModel import *
-from .BaseTest import *
+from .BaseModel import BaseModel
+from .BaseTest import BaseTest
 
 from . import functional
 from . import shallow
@@ -9,11 +9,9 @@ from . import optimizers
 from .wgan_gp import WGAN_GP
 from .lenet import LeNet
 
-import utils
-
 
 __all__ = [
-    'BaseModel', 'BaseTest', 'functional', 'find', 'all', 'allcfgs',
+    'BaseModel', 'BaseTest', 'functional',
 
     'shallow', 'layers', 'optimizers',
 
@@ -21,16 +19,3 @@ __all__ = [
 
     'WGAN_GP'
 ]
-
-
-def all():
-    return utils.common.all_subclasses_not_abstract(BaseModel)
-
-
-def allcfgs():
-    return configs.all(configs.BaseConfig, configs.env.getdir(configs.env.paths.model_cfgs_folder))
-
-
-def find(name):
-    model = getattr(models, name, None)
-    return model if model is not None and issubclass(model, BaseModel) else None

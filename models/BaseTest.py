@@ -17,12 +17,12 @@ class BaseTest(object):
         self.model = model
 
     def run(self, rm_save_folder=False):
-        for model_cfg in models.allcfgs():
+        for model_cfg in models.functional.common.allcfgs():
             if hasattr(model_cfg, 'name') and model_cfg.name == self.model.__name__:
                 model_name = os.path.splitext(os.path.split(model_cfg._path)[1])[0]
                 logger = utils.Logger(os.path.join(os.path.dirname(__file__), 'test', model_name), model_name)
                 logger.info('Testing model: ' + model_name + ' ...')
-                for data_cfg in datasets.allcfgs():
+                for data_cfg in datasets.functional.common.allcfgs():
                     if not self.model.check_cfg(data_cfg, model_cfg):
                         # print("\tDataset '" + data_cfg.name + "' not support")
                         continue
