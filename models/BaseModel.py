@@ -169,5 +169,5 @@ class BaseModel(_ProcessHook, _MainHook):
 
 
 if __name__ == "__main__":
-    print(models.all())
-    print(models.allcfgs())
+    print(models.functional.common.all())
+    print(models.functional.common.allcfgs())
