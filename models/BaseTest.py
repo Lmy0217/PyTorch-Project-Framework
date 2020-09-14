@@ -122,8 +122,10 @@ class BaseTest(object):
                                     result_dict = model.test_process(epoch_info, test_sample_dict)
                                     model.test_epoch_hook(epoch_info, test_sample_loader)
                                     result_dict = model.test_return_hook(
-                                        epoch_info, {k: v.detach().cpu().numpy() for k, v in result_dict.items()
-                                                     if isinstance(v, torch.Tensor)})
+                                        epoch_info, {
+                                            k: v.detach().cpu().numpy() for k, v in result_dict.items()
+                                            if isinstance(v, torch.Tensor)
+                                        } if isinstance(result_dict, dict) else result_dict)
                                     add_data_msgs, msgs = None, None
                                     if isinstance(result_dict, tuple):
                                         if len(result_dict) == 2:
