@@ -62,4 +62,5 @@ class Logger(object):
         self.info(msg.format(*infos, *scalars_list))
 
     def save_mat(self, filename, data):
+        # TODO some time too large to save for MATLAB v5
         scipy.io.savemat(os.path.join(self.path, filename), data)

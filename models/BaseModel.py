@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+from torch import distributed
 import torch.nn as nn
 import torch
 import abc
@@ -90,7 +91,7 @@ class BaseModel(_ProcessHook, _MainHook):
         self.data_cfg = data_cfg
         self.run = run
         self.path = utils.path.get_path(cfg, data_cfg, run)
-        self.device = torch.device("cuda" if self.run.cuda else "cpu")
+        self.device = self.run.device
 
         self._save_list = list()
         self.msg = dict()
@@ -117,8 +118,7 @@ class BaseModel(_ProcessHook, _MainHook):
     def train_return_hook(self, epoch_info: dict, return_all: dict):
         _count = torch.tensor(return_all.pop('_count'), dtype=torch.float32, device=self.device)
         for key, value in return_all.items():
-            return_all[key] = _count @ torch.tensor(value, dtype=torch.float32, device=self.device) \
-                              / epoch_info['count_data']
+            return_all[key] = _count @ torch.tensor(value, dtype=torch.float32, device=self.device) / torch.sum(_count)
         return return_all
 
     def summary_models(self, shapes):
@@ -145,8 +145,11 @@ class BaseModel(_ProcessHook, _MainHook):
             msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
             for name, value in self.__dict__.items():
                 if value.__class__.__base__ == nn.Module or name in self._save_list:
+                    map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else None
                     load_value = torch.load(
-                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'))
+                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'),
+                        map_location=map_location
+                    )
                     if value.__class__.__base__ == nn.Module:
                         self.__dict__[name].load_state_dict(load_value)
                     else:
@@ -154,18 +157,21 @@ class BaseModel(_ProcessHook, _MainHook):
         return start_epoch
 
     def save(self, epoch, path=None):
-        path = path or self.path
-        if not os.path.exists(path):
-            os.makedirs(path)
-        msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
-        for name, value in self.__dict__.items():
-            # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
-            if value.__class__.__base__ == nn.Module or name in self._save_list:
-                save_value = value.state_dict() if value.__class__.__base__ == nn.Module else value
-                torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
-        main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
-        torch.save(dict(epoch=epoch, msg=self.msg, main_msg=self.main_msg),
-                   os.path.join(path, self.name + main_msg + configs.env.paths.check_file))
+        if not self.run.distributed or (self.run.distributed and self.run.local_rank == 0):
+            path = path or self.path
+            if not os.path.exists(path):
+                os.makedirs(path)
+            msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
+            for name, value in self.__dict__.items():
+                # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
+                if value.__class__.__base__ == nn.Module or name in self._save_list:
+                    save_value = value.state_dict() if value.__class__.__base__ == nn.Module else value
+                    torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
+            main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
+            torch.save(dict(epoch=epoch, msg=self.msg, main_msg=self.main_msg),
+                       os.path.join(path, self.name + main_msg + configs.env.paths.check_file))
+        if self.run.distributed:
+            torch.distributed.barrier()
 
 
 if __name__ == "__main__":

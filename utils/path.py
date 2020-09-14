@@ -2,7 +2,7 @@ import os
 import configs
 
 
-__all__ = ['get_filename', 'get_path', 'comp_path']
+__all__ = ['get_filename', 'get_path', 'comp_path', 'real_config_path']
 
 
 def get_filename(path):
@@ -31,7 +31,7 @@ def comp_path(paths: dict, counts: list, indexes: list):
                 l_index_count += 1
             else:
                 if l_flag:
-                    if indexes[l_index] < 1 or indexes[l_index] > counts[l_index] or \
+                    if indexes[l_index] < 0 or indexes[l_index] > counts[l_index] or \
                             len(str(indexes[l_index])) > l_index_count:
                         raise ValueError('index error!')
                     for ii, ss in enumerate(list(str(indexes[l_index]).zfill(l_index_count))):
@@ -45,3 +45,10 @@ def comp_path(paths: dict, counts: list, indexes: list):
                 l[l_index_start + ii] = ss
         path_dict[name] = ''.join(l)
     return path_dict
+
+
+def real_config_path(config_path, set_folder):
+    if os.path.exists(config_path):
+        return os.path.abspath(config_path)
+    else:
+        return configs.env.getdir(os.path.join(set_folder, config_path + '.json'))

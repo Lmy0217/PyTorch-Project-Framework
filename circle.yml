@@ -29,7 +29,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt > /dev/null
-            pip install torch==1.5.1+cpu torchvision==0.6.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+            pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
       - save_cache:
           paths:
@@ -52,7 +52,7 @@ jobs:
           name: test sample
           command: |
             . venv/bin/activate
-#            python -m main -m "res/models/lenet.json" -r "res/run/hp1.json" -d "res/datasets/MNIST.json"
+#            python -m main -m "lenet" -r "hp1" -d "MNIST"
 
       - store_artifacts:
           path: test-reports

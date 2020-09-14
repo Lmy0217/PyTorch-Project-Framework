@@ -150,6 +150,10 @@ class TestPath(unittest.TestCase):
         indexes_2 = [2, 1]
         self.assertEqual(comp_path(paths, counts, indexes_2), dict(a='/user/file_*02_01', b='*02_01'))
 
+    def test_real_config_path(self):
+        # TODO test
+        pass
+
 
 class TestLogger(unittest.TestCase):
     # TODO test logger
@@ -204,6 +208,17 @@ class TestMedical(unittest.TestCase):
         b = np.random.randn(2, 3, 6, 6)
         c = cbf(a, b)
         self.assertEqual(c.shape, a.shape)
+
+
+class TestDDP(unittest.TestCase):
+
+    def test_zero_first(self):
+        # TODO test DDP
+        pass
+
+    def test_sequence(self):
+        # TODO test DDP
+        pass
 
 
 if __name__ == '__main__':

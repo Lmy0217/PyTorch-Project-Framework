@@ -65,7 +65,7 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
 
     @staticmethod
     def meanstd(data):
-        return np.mean(data, (0, *tuple(range(2, data.ndim)))), np.std(data, (0, *tuple(range(2, data.ndim))))
+        return data.mean((0, *tuple(range(2, data.ndim)))), data.std((0, *tuple(range(2, data.ndim))))
 
     def _ms(self, norm_set: Union[None, list] = None, split_items: Union[None, list] = None):
         assert norm_set or (split_items and len(split_items) == 2 and isinstance(split_items[0], list)
@@ -82,7 +82,14 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
                     ms_dict[split_items[1][idx]] = ms_dict[name]
         if hasattr(self, 'logger'):
             self.logger.info(ms_dict)
-            self.logger.save_mat(self.name + configs.env.paths.ms_file, ms_dict)
+            self.logger.save_mat(
+                self.name + configs.env.paths.ms_file,
+                {
+                    key: (value[0].cpu().numpy(), value[1].cpu().numpy())
+                    if isinstance(value[0], torch.Tensor) else value
+                    for key, value in ms_dict.items()
+                }
+            )
         return ms_dict
 
     def _norm(self):
@@ -125,14 +132,14 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
                 args_dict['data'] = data
             elif key == 'mean':
                 if ms is not None:
-                    mean = np.resize(ms[0], (1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
-                    if isinstance(data, torch.Tensor):
+                    mean = ms[0].reshape((1, *ms[0].shape, *tuple([1] * (data.ndim - 2))))
+                    if isinstance(data, torch.Tensor) and isinstance(mean, np.ndarray):
                         mean = torch.from_numpy(mean).to(data.device)
                     args_dict['mean'] = mean
             elif key == 'std':
                 if ms is not None:
-                    std = np.resize(ms[1], (1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
-                    if isinstance(data, torch.Tensor):
+                    std = ms[1].reshape((1, *ms[1].shape, *tuple([1] * (data.ndim - 2))))
+                    if isinstance(data, torch.Tensor) and isinstance(std, np.ndarray):
                         std = torch.from_numpy(std).to(data.device)
                     args_dict['std'] = std
             elif hasattr(cfg, key):

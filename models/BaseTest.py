@@ -1,5 +1,6 @@
 from torch.utils.data import DataLoader
 import torch
+import numpy as np
 import os
 import shutil
 import configs
@@ -29,6 +30,7 @@ class BaseTest(object):
                     data_name = os.path.splitext(os.path.split(data_cfg._path)[1])[0]
                     logger.info('\tTesting dataset: ' + data_name + ' ...')
                     data_cfg.index_cross = 1
+                    test_batchsize = configs.env.ci.batchsize
                     sample_dict, test_sample_dict = dict(), dict()
                     for name, value in vars(data_cfg).items():
                         if name.startswith('source') or name.startswith('target'):
@@ -53,7 +55,7 @@ class BaseTest(object):
                                 data_cfg, 'test_kernel' if name.startswith('test_source') else 'test_out_kernel', None)
                             if test_kernel is not None:
                                 test_sample_shape = (test_kernel.kT, test_kernel.kW, test_kernel.kH)
-                                test_sample_dict[name[5:]] = torch.randn(1, *test_sample_shape)
+                                test_sample_dict[name[5:]] = torch.randn(test_batchsize, *test_sample_shape)
                             else:
                                 if hasattr(value, 'patch'):
                                     test_sample_shape = (value.patch, value.time, value.width, value.height)
@@ -62,13 +64,13 @@ class BaseTest(object):
                                 else:
                                     test_sample_shape = (value.elements,)
                                 test_sample_dict[name[5:]] = \
-                                    torch.randint(value.classes, (1, 1)).long() \
+                                    torch.randint(value.classes, (test_batchsize, 1)).long() \
                                         if len(test_sample_shape) == 1 and test_sample_shape[0] == 1 \
-                                        else torch.randn(1, *test_sample_shape)
+                                        else torch.randn(test_batchsize, *test_sample_shape)
                             logger.info("\t-- " + name + " size: " + str(test_sample_dict[name[5:]].size()))
                     for name, value in sample_dict.items():
                         if name not in test_sample_dict.keys():
-                            test_sample_dict[name] = value[0:1]
+                            test_sample_dict[name] = value[0:test_batchsize]
                     sample_loader = DataLoader(datasets.SampleDataset(sample_dict), pin_memory=True)
                     test_sample_loader = DataLoader(datasets.SampleDataset(test_sample_dict), pin_memory=True)
 
@@ -78,7 +80,8 @@ class BaseTest(object):
 
                         save_folder = os.path.join(os.path.dirname(__file__), 'test',
                                                    model_name, data_name + '-' + run_name)
-                        summary = utils.Summary(save_folder)
+                        summary = utils.Summary(save_folder, dataset=datasets.SampleDataset(dict()))
+                        summary.dataset.logger = logger
                         main_msg = dict(ci='ci')
                         main_msg.update(dict(index_cross=data_cfg.index_cross, while_idx=1, while_flag=True))
 
@@ -111,27 +114,31 @@ class BaseTest(object):
                             model.main_msg.update(dict(test_idx=1, test_flag=True, only_test=False))
                             while model.main_msg['test_flag']:
                                 torch.cuda.empty_cache()
-                                test_sample_loader = model.test_loader_hook(test_sample_loader)
-                                epoch_info.update(dict(index=torch.arange(1), batch_count=1, count_data=1))
-                                model.test_epoch_pre_hook(epoch_info, test_sample_loader)
-                                result_dict = model.test_process(epoch_info, test_sample_dict)
-                                model.test_epoch_hook(epoch_info, test_sample_loader)
-                                result_dict = model.test_return_hook(epoch_info, result_dict)
-                                add_data_msgs, msgs = None, None
-                                if isinstance(result_dict, tuple):
-                                    if len(result_dict) == 2:
-                                        add_data_msgs = result_dict[1]
-                                        result_dict = result_dict[0]
-                                    elif len(result_dict) == 3:
-                                        msgs = result_dict[2]
-                                        add_data_msgs = result_dict[1]
-                                        result_dict = result_dict[0]
-                                for name, value in result_dict.items():
-                                    result_dict[name] = value.shape
-                                logger.info("\t\t-- result(s) " + str(model.main_msg['test_idx']) + " size: "
-                                            + str(result_dict))
-                                if msgs is not None:
-                                    logger.info("\t\t-- msg(s): " + str(msgs))
+                                with torch.no_grad():
+                                    test_sample_loader = model.test_loader_hook(test_sample_loader)
+                                    epoch_info.update(dict(index=torch.arange(test_batchsize),
+                                                           batch_count=test_batchsize, count_data=test_batchsize))
+                                    model.test_epoch_pre_hook(epoch_info, test_sample_loader)
+                                    result_dict = model.test_process(epoch_info, test_sample_dict)
+                                    model.test_epoch_hook(epoch_info, test_sample_loader)
+                                    result_dict = model.test_return_hook(
+                                        epoch_info, {k: v.detach().cpu().numpy() for k, v in result_dict.items()
+                                                     if isinstance(v, torch.Tensor)})
+                                    add_data_msgs, msgs = None, None
+                                    if isinstance(result_dict, tuple):
+                                        if len(result_dict) == 2:
+                                            add_data_msgs = result_dict[1]
+                                            result_dict = result_dict[0]
+                                        elif len(result_dict) == 3:
+                                            msgs = result_dict[2]
+                                            add_data_msgs = result_dict[1]
+                                            result_dict = result_dict[0]
+                                    for name, value in result_dict.items():
+                                        result_dict[name] = value.shape
+                                    logger.info("\t\t-- result(s) " + str(model.main_msg['test_idx']) + " size: "
+                                                + str(result_dict))
+                                    if msgs is not None:
+                                        logger.info("\t\t-- msg(s): " + str(msgs))
                                 model.process_test_msg_hook(model.main_msg)
                             model.process_hook()
                             model.process_msg_hook(main_msg)

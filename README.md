@@ -254,10 +254,10 @@ Here's how to use this framework, you should do the following:
         ```
 
 - Run `main.py` to start training or testing
-    - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json`
+    - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json` in GPU 0
 
 	    ```bash
-	    python3 -m main --d "res/datasets/yourdataset.json" --m "res/models/yourmodel.json" --r "res/run/yourhp.json"
+	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0
 	    ```
 
     Every `save_step` epoch trained model and data which want to saved will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
@@ -265,7 +265,7 @@ Here's how to use this framework, you should do the following:
     - If you want to testing epoch 10
 
 	    ```bash
-	    python3 -m main --d "res/datasets/yourdataset.json" --m "res/models/yourmodel.json" --r "res/run/yourhp.json" --t 10
+	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0 --t 10
 	    ```
 
 ## Contributing

@@ -14,6 +14,9 @@ class BaseConfig(object):
         self._space = 0
         self._load(cfg) if isinstance(cfg, dict) else self._fromfile(cfg)
 
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
     @staticmethod
     def _values(key: str):
         return not (key.startswith('_') or key == 'name')

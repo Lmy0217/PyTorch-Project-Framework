@@ -15,9 +15,15 @@ class Main(object):
 
     def __init__(self, args):
         self.args = args
-        self.model_cfg = configs.BaseConfig(args.model_config_path)
-        self.run_cfg = configs.Run(args.run_config_path)
-        self.dataset_cfg = datasets.functional.common.more(configs.BaseConfig(args.dataset_config_path))
+        self.model_cfg = configs.BaseConfig(utils.path.real_config_path(
+            args.model_config_path, configs.env.paths.model_cfgs_folder))
+        self.run_cfg = configs.Run(utils.path.real_config_path(
+            args.run_config_path, configs.env.paths.run_cfgs_folder), gpus=args.gpus)
+        self.dataset_cfg = datasets.functional.common.more(configs.BaseConfig(
+            utils.path.real_config_path(args.dataset_config_path, configs.env.paths.dataset_cfgs_folder)))
+
+        if not self.run_cfg.distributed or (self.run_cfg.distributed and self.run_cfg.local_rank == 0):
+            print(args)
 
         self._init()
         self._get_component()
@@ -46,20 +52,37 @@ class Main(object):
         self.dataset.set_summary(self.summary)
 
         self.trainset, self.testset = self.dataset.split(index_cross)
+
+        train_sampler = torch.utils.data.distributed.DistributedSampler(self.trainset, shuffle=True) \
+            if self.run_cfg.distributed else None
+        test_sampler = torch.utils.data.distributed.DistributedSampler(self.testset, shuffle=False) \
+            if self.run_cfg.distributed else None
         # more than one num_workers, use screen to detach
         # TODO fix num_workers must set 0 in Windows
-        self.train_loader = DataLoader(self.trainset, batch_size=self.run_cfg.batch_size, shuffle=True,
-                                       num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
-            if len(self.trainset) > 0 else list()
-        self.test_loader = DataLoader(self.testset, batch_size=self.run_cfg.batch_size, shuffle=False,
-                                       num_workers=0 if platform.system() == 'Windows' else 8, pin_memory=True) \
-            if len(self.testset) > 0 else list()
+        self.train_loader = DataLoader(
+            self.trainset,
+            batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.batch_size,
+            shuffle=(train_sampler is None),
+            num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
+            pin_memory=self.dataset.cfg.pin_memory,
+            sampler=train_sampler
+        ) if len(self.trainset) > 0 else list()
 
-        self.model = models.functional.common.find(self.model_cfg.name)(self.model_cfg, self.dataset.cfg, self.run_cfg,
-                                                                        summary=self.summary, main_msg=self.msg)
+        self.test_loader = DataLoader(
+            self.testset,
+            batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.batch_size,
+            shuffle=False,
+            num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
+            pin_memory=self.dataset.cfg.pin_memory,
+            sampler=test_sampler
+        ) if len(self.testset) > 0 else list()
+
+        self.model = models.functional.common.find(self.model_cfg.name)(
+            self.model_cfg, self.dataset.cfg, self.run_cfg, summary=self.summary, main_msg=self.msg)
         self.start_epoch = self.model.load(self.args.test_epoch)
 
-        self.show_cfgs()
+        if not self.run_cfg.distributed or (self.run_cfg.distributed and self.run_cfg.local_rank == 0):
+            self.show_cfgs()
 
     @staticmethod
     def _get_type(cfg: configs.BaseConfig, data_name: str, test: bool = True):
@@ -73,6 +96,7 @@ class Main(object):
         return data_type, data_cfg
 
     def train(self, epoch):
+        torch.cuda.empty_cache()
         log_step, count, loss_all = 1, 0, dict()
         self.train_loader = self.model.train_loader_hook(self.train_loader)
         batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
@@ -91,11 +115,24 @@ class Main(object):
             # TODO more scalars?
             # self.summary.add_scalars('Losses', loss_dict, (epoch - 1) * batch_per_epoch + batch_idx + 1)
             if batch_idx % log_step == 0:
-                self.logger.info_scalars('Train Epoch: {} [{}/{} ({:.0f}%)]\t',
-                                         (epoch, count, count_data, 100. * count / count_data), loss_dict)
+                if self.run_cfg.distributed:
+                    count_rank = (count - _count) * self.run_cfg.world_size + _count * (self.run_cfg.local_rank + 1)
+                    with utils.ddp.sequence():
+                        self.logger.info_scalars(
+                            'Train Epoch: {} rank {} [{}/{} ({:.0f}%)]\t',
+                            (epoch, self.run_cfg.local_rank, count_rank, count_data, 100. * count_rank / count_data),
+                            loss_dict
+                        )
+                else:
+                    self.logger.info_scalars('Train Epoch: {} [{}/{} ({:.0f}%)]\t',
+                                             (epoch, count, count_data, 100. * count / count_data), loss_dict)
         self.model.train_epoch_hook(epoch_info, self.train_loader)
         loss_all = self.model.train_return_hook(epoch_info, loss_all)
-        self.logger.info_scalars('Train Epoch: {}\t', (epoch,), loss_all)
+        if self.run_cfg.distributed:
+            with utils.ddp.sequence():
+                self.logger.info_scalars('Train Epoch: {} rank {}\t', (epoch, self.run_cfg.local_rank), loss_all)
+        else:
+            self.logger.info_scalars('Train Epoch: {}\t', (epoch,), loss_all)
         if epoch % self.run_cfg.save_step == 0:
             self.model.save(epoch)
 
@@ -131,21 +168,45 @@ class Main(object):
                         else:
                             msgs_dict[name] += value
                 if batch_idx % log_step == 0:
-                    self.logger.info('Test Epoch: {} [{}/{} ({:.0f}%)]'.format(
-                        epoch, count, len(self.test_loader.dataset), 100. * count / len(self.test_loader.dataset)))
+                    if self.run_cfg.distributed:
+                        count_rank = (count - _count) * self.run_cfg.world_size + _count * (self.run_cfg.local_rank + 1)
+                        with utils.ddp.sequence():
+                            self.logger.info('Test Epoch: {} rank {} [{}/{} ({:.0f}%)]'.format(
+                                epoch, self.run_cfg.local_rank, count_rank, count_data, 100. * count_rank / count_data))
+                    else:
+                        self.logger.info('Test Epoch: {} [{}/{} ({:.0f}%)]'.format(
+                            epoch, count, count_data, 100. * count / count_data))
                 if len(predict) != len(output_dict):
+                    self.predict_device = torch.device(
+                        'cuda' if self.model.run.cuda and self.dataset.cfg.predict_cuda else 'cpu') \
+                        if self.dataset.cfg.predict_cuda is not None else None
                     for name, value in output_dict.items():
                         data_type, data_cfg = self._get_type(self.dataset.cfg, name, test=True)
+                        # TODO check data_cfg has value but not BaseConfig
                         if data_cfg is not None:
                             if add_data_msgs is None:
-                                predict_shape = (data_cfg.time, data_cfg.width, data_cfg.height) \
-                                    if data_cfg.elements > 1 else [1]
+                                if data_cfg.elements > 1:
+                                    if hasattr(data_cfg, 'patch'):
+                                        predict_shape = (data_cfg.patch, data_cfg.time, data_cfg.width, data_cfg.height)
+                                    elif hasattr(data_cfg, 'time'):
+                                        predict_shape = (data_cfg.time, data_cfg.width, data_cfg.height)
+                                    elif hasattr(data_cfg, 'width'):
+                                        predict_shape = (data_cfg.width, data_cfg.height)
+                                    else:
+                                        predict_shape = [data_cfg.elements]
+                                else:
+                                    predict_shape = [1]
                             else:
                                 predict_shape = value.shape[1:]
-                            predict[name] = torch.zeros(self.testset.raw_count, *predict_shape)
+                            predict[name] = torch.zeros(
+                                self.testset.raw_count, *predict_shape, dtype=torch.float32,
+                                device=self.predict_device or value.device)
                         else:
-                            predict[name] = torch.Tensor().to(value.device)
+                            predict[name] = torch.tensor(
+                                [], dtype=torch.float32, device=self.predict_device or value.device)
                 for name, value in output_dict.items():
+                    if self.predict_device is not None:
+                        value = value.to(self.predict_device)
                     data_type, data_cfg = self._get_type(self.dataset.cfg, name, test=True)
                     if data_cfg is not None:
                         for i in range(len(value)):
@@ -155,14 +216,15 @@ class Main(object):
                             predict[name][slice_recover] = value[i]
                     else:
                         predict[name] = torch.cat((predict[name], value.float()
-                            if value.shape else torch.tensor([value], dtype=torch.float).to(value.device)))
+                        if value.shape else torch.tensor([value], dtype=torch.float32,
+                                                         device=self.predict_device or value.device)))
             self.model.test_epoch_hook(epoch_info, self.test_loader)
             if msgs is not None:
                 log_msg = 'Test Epoch: {}'
                 accuracy = list()
                 for name, value in msgs_dict.items():
-                    msgs_dict[name] = 100. * value / count
                     log_msg += ' ' + name + ': {:0.2f}%'
+                    msgs_dict[name] = 100. * value / count
                     accuracy.append(msgs_dict[name])
                 self.logger.info(log_msg.format(epoch, *accuracy))
                 self.summary.add_scalars('Accuracy', msgs_dict, epoch)
@@ -202,11 +264,13 @@ if __name__ == '__main__':
                         help='Path to run config .json file')
     parser.add_argument('-d', '--dataset_config_path', type=str, required=True, metavar='/path/to/dataset/config.json',
                         help='Path to dataset config .json file')
+    parser.add_argument('-g', '--gpus', type=str, default='0', metavar='cuda device, i.e. 0 or 0,1,2,3 or cpu',
+                        help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
     parser.add_argument('-t', '--test_epoch', type=int, metavar='epoch want to test', help='epoch want to test')
     parser.add_argument('--ci', action='store_false' if configs.env.ci.run else 'store_true',
                         default=configs.env.ci.run, help='running CI')
     args = parser.parse_args()
-    print(args)
 
     main = Main(args)
     for index_cross in range(min(main.dataset.cfg.cross_folder, 1), main.dataset.cfg.cross_folder + 1):
