@@ -254,7 +254,7 @@ Here's how to use this framework, you should do the following:
         ```
 
 - Run `main.py` to start training or testing
-    - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json` in GPU 0
+    - Training with configuration files `res/datasets/yourdataset.json`, `res/models/yourmodel.json`, and `res/run/yourhp.json` on GPU 0
 
 	    ```bash
 	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0
