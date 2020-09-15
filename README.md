@@ -265,7 +265,7 @@ Here's how to use this framework, you should do the following:
     - If you want to testing epoch 10
 
 	    ```bash
-	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0 --t 10
+	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0 -t 10
 	    ```
 
 ## Contributing
