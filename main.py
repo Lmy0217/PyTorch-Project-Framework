@@ -63,6 +63,7 @@ class Main(object):
             self.trainset,
             batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.batch_size,
             shuffle=(train_sampler is None),
+            collate_fn=getattr(self.trainset.dataset, 'collate_fn', None),
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
             pin_memory=self.dataset.cfg.pin_memory,
             sampler=train_sampler
@@ -72,6 +73,7 @@ class Main(object):
             self.testset,
             batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.batch_size,
             shuffle=False,
+            collate_fn=getattr(self.testset.dataset, 'collate_fn', None),
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
             pin_memory=self.dataset.cfg.pin_memory,
             sampler=test_sampler
