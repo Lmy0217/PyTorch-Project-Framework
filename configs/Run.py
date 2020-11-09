@@ -22,7 +22,7 @@ class Run(configs.BaseConfig):
         self._set_gpus()
         if self.gpus:
             self.cuda = torch.cuda.is_available() and getattr(self, 'cuda', True)
-            self.device = torch.device("cuda" if self.cuda else "cpu")
+            self.device = torch.device("cuda", 0) if self.cuda else torch.device("cpu")
         else:
             self.cuda = False
             self.device = torch.device('cpu')
