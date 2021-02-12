@@ -29,7 +29,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt > /dev/null
-            pip install torch==1.7.0+cpu torchvision==0.8.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+            pip install torch==1.7.1+cpu torchvision==0.8.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
       - save_cache:
           paths:
@@ -52,7 +52,7 @@ jobs:
           name: test sample
           command: |
             . venv/bin/activate
-#            python -m main -m "lenet" -r "hp1" -d "MNIST"
+#            python -m main -m lenet -r hp1 -d MNIST
 
       - store_artifacts:
           path: test-reports

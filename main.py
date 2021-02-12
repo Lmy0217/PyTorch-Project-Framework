@@ -69,9 +69,10 @@ class Main(object):
             sampler=train_sampler
         ) if len(self.trainset) > 0 else list()
 
+        self.run_cfg.test_batch_size = getattr(self.run_cfg, 'test_batch_size', self.run_cfg.batch_size)
         self.test_loader = DataLoader(
             self.testset,
-            batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.batch_size,
+            batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.test_batch_size,
             shuffle=False,
             collate_fn=getattr(self.testset.dataset, 'collate_fn', None),
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
@@ -99,9 +100,10 @@ class Main(object):
 
     def train(self, epoch):
         torch.cuda.empty_cache()
-        log_step, count, loss_all = 1, 0, dict()
+        count, loss_all = 0, dict()
         self.train_loader = self.model.train_loader_hook(self.train_loader)
         batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
+        log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
         epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
         self.model.train_epoch_pre_hook(epoch_info, self.train_loader)
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
@@ -126,9 +128,17 @@ class Main(object):
                             loss_dict
                         )
                 else:
+                    # TODO error when `dataset` has `collate_fn`, item include batch and `count_data` is count of batch,
+                    #      but `count` is all of items.
                     self.logger.info_scalars('Train Epoch: {} [{}/{} ({:.0f}%)]\t',
                                              (epoch, count, count_data, 100. * count / count_data), loss_dict)
         self.model.train_epoch_hook(epoch_info, self.train_loader)
+        if epoch % self.run_cfg.save_step == 0:
+            loss_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
+                                     + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
+                                     + configs.env.paths.loss_file)
+            self.logger.save_mat(
+                loss_file, {k: v.cpu().detach().numpy() if isinstance(v, torch.Tensor) else v for k, v in loss_all.items()})
         loss_all = self.model.train_return_hook(epoch_info, loss_all)
         if self.run_cfg.distributed:
             with utils.ddp.sequence():
@@ -142,11 +152,12 @@ class Main(object):
     def test(self, epoch):
         torch.cuda.empty_cache()
         predict = dict()
-        log_step, count = 1, 0
+        count = 0
         add_data_msgs, msgs, msgs_dict = None, None, dict()
         with torch.no_grad():
             self.test_loader = self.model.test_loader_hook(self.test_loader)
             batch_per_epoch, count_data = len(self.test_loader), len(self.test_loader.dataset)
+            log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
             epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
             self.model.test_epoch_pre_hook(epoch_info, self.test_loader)
             for batch_idx, (sample_dict, index) in enumerate(self.test_loader):

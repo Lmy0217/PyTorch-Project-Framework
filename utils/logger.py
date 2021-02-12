@@ -56,8 +56,6 @@ class Logger(object):
             for name, value in scalars.items():
                 if not name.startswith('_'):
                     msg += ' ' + name + ': {:.6f}'
-                    if isinstance(value, Tensor):
-                        value = value.item()
                     scalars_list.append(value)
         self.info(msg.format(*infos, *scalars_list))
 

@@ -282,17 +282,17 @@ class BaseSplit(Dataset):
 
 class SampleDataset(Dataset):
 
-    def __init__(self, sample: dict):
-        self.sample = sample
+    def __init__(self, data: dict):
+        self.data = data
 
     def __getitem__(self, index):
         item = dict()
-        for key, value in self.sample.items():
+        for key, value in self.data.items():
             item[key] = value[index]
         return item, index
 
     def __len__(self):
-        return len(list(self.sample.values())[0])
+        return len(list(self.data.values())[0])
 
 
 if __name__ == "__main__":

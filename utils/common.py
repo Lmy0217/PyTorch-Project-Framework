@@ -26,11 +26,16 @@ def deepcopy(cls, no_deep=list()):
 def merge_dict(dst: dict, src: dict):
     for key, value in src.items():
         if isinstance(value, torch.Tensor):
-            value = value.item()
-        if key in dst.keys():
-            dst[key].append(value)
+            value = value.unsqueeze(-1)
+            if key in dst.keys():
+                dst[key] = torch.cat([dst[key], value])
+            else:
+                dst[key] = value
         else:
-            dst[key] = [value]
+            if key in dst.keys():
+                dst[key].append(value)
+            else:
+                dst[key] = [value]
 
 
 def _all_subclasses(cls):

@@ -34,7 +34,7 @@ class BaseTest(object):
                         sample_info = "  -- The " + str(i + 1) + "-th sample:"
                         sample_dict, index = splitset[i]
                         for name, value in sample_dict.items():
-                            if (hasattr(value, 'ndim') and value.ndim > 1) or value.shape[0] > 1:
+                            if hasattr(value, 'ndim') and (value.ndim > 1 or value.ndim == 1 and value.shape[0] > 1):
                                 sample_info += " " + name + " size: " + str(value.shape)
                             else:
                                 sample_info += " " + name + " : " + str(value)

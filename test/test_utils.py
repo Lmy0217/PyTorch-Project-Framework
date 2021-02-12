@@ -36,13 +36,15 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(t2.c, [5, 2])
 
     def test_merge_dict(self):
-        a = dict()
-
+        a = {}
         merge_dict(a, dict(c=torch.tensor(1)))
-        self.assertEqual(a, dict(c=[1]))
+        self.assertEqual(a, dict(c=torch.tensor(1)))
 
-        merge_dict(a, dict(c=1.0))
-        self.assertEqual(a, dict(c=[1, 1.0]))
+        b = {}
+        merge_dict(b, dict(c=1))
+        self.assertEqual(b, dict(c=[1]))
+        merge_dict(b, dict(c=1.0))
+        self.assertEqual(b, dict(c=[1, 1.0]))
 
     def test_all_subclasses_(self):
         A = type('A', (object,), dict())

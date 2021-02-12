@@ -63,7 +63,7 @@ class TestBaseModel(unittest.TestCase):
 
     def testInit(self):
         self.assertEqual(self.model.name, 'model_configs')
-        self.assertEqual(self.model.device, torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        self.assertEqual(self.model.device, torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'))
 
     def test_apply(self):
         def weight_init(m):

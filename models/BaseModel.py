@@ -117,8 +117,13 @@ class BaseModel(_ProcessHook, _MainHook):
 
     def train_return_hook(self, epoch_info: dict, return_all: dict):
         _count = torch.tensor(return_all.pop('_count'), dtype=torch.float32, device=self.device)
+        _count_sum = torch.sum(_count)
         for key, value in return_all.items():
-            return_all[key] = _count @ torch.tensor(value, dtype=torch.float32, device=self.device) / torch.sum(_count)
+            if not isinstance(value, torch.Tensor):
+                value = torch.tensor(value, dtype=torch.float32, device=self.device)
+            elif value.device != self.device:
+                value = value.to(self.device)
+            return_all[key] = _count @ value / _count_sum
         return return_all
 
     def summary_models(self, shapes):
