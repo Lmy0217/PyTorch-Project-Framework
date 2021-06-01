@@ -99,6 +99,9 @@ class BaseModel(_ProcessHook, _MainHook):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+        if hasattr(self, 'summary') and hasattr(self.summary, 'dataset'):
+            self.dataset = self.summary.dataset
+
     @staticmethod
     def check_cfg(data_cfg, cfg):
         return True
