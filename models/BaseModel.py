@@ -152,7 +152,7 @@ class BaseModel(_ProcessHook, _MainHook):
         if start_epoch > 0:
             msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
             for name, value in self.__dict__.items():
-                if value.__class__.__base__ == nn.Module or name in self._save_list:
+                if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
                     map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else None
                     load_value = torch.load(
                         os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'),
@@ -172,7 +172,7 @@ class BaseModel(_ProcessHook, _MainHook):
             msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
             for name, value in self.__dict__.items():
                 # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
-                if value.__class__.__base__ == nn.Module or name in self._save_list:
+                if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
                     save_value = value.state_dict() if value.__class__.__base__ == nn.Module else value
                     torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
             main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
