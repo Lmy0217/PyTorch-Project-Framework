@@ -4,6 +4,7 @@ import torch
 import os
 import time
 import numpy as np
+import random
 import configs
 import datasets
 import models
@@ -29,10 +30,18 @@ class Main(object):
         self._get_component()
 
     def _init(self):
-        torch.manual_seed(int(time.time()))
+        self.set_seed(0)
         configs.env.ci.run = self.args.ci
         # TODO remove msg['ci'], use configs.env.ci.run
         self.msg = dict(ci='ci' if configs.env.ci.run else None)
+
+    def set_seed(self, seed=0):
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
 
     def _get_component(self):
         self.dataset = datasets.functional.common.find(self.dataset_cfg.name)(self.dataset_cfg)
@@ -99,6 +108,7 @@ class Main(object):
         return data_type, data_cfg
 
     def train(self, epoch):
+        self.set_seed(int(time.time()))
         torch.cuda.empty_cache()
         count, loss_all = 0, dict()
         self.train_loader = self.model.train_loader_hook(self.train_loader)
@@ -150,6 +160,7 @@ class Main(object):
 
     # TODO simplify
     def test(self, epoch):
+        self.set_seed(int(time.time()))
         torch.cuda.empty_cache()
         predict = dict()
         count = 0
