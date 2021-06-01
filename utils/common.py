@@ -10,8 +10,8 @@ __all__ = [
 ]
 
 
-def deepcopy(cls, no_deep=list()):
-    memo = dict()
+def deepcopy(cls, no_deep=()):
+    memo = {}
     for key in no_deep:
         if hasattr(cls, key):
             memo[key] = getattr(cls, key)
@@ -28,9 +28,9 @@ def merge_dict(dst: dict, src: dict):
         if isinstance(value, torch.Tensor):
             value = value.unsqueeze(-1)
             if key in dst.keys():
-                dst[key] = torch.cat([dst[key], value])
+                dst[key] = torch.cat([dst[key], value.detach()])
             else:
-                dst[key] = value
+                dst[key] = value.detach()
         else:
             if key in dst.keys():
                 dst[key].append(value)
