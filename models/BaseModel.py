@@ -108,13 +108,13 @@ class BaseModel(_ProcessHook, _MainHook):
 
     def apply(self, fn):
         for name, value in self.__dict__.items():
-            if value.__class__.__base__ == nn.Module:
+            if isinstance(value, nn.Module):
                 self.__dict__[name].apply(fn)
 
     def modules(self):
         m = dict()
         for name, value in list(vars(self).items()):
-            if value.__class__.__base__ == nn.Module:
+            if isinstance(value, nn.Module):
                 m[name] = value
         return m
 
@@ -133,7 +133,7 @@ class BaseModel(_ProcessHook, _MainHook):
         # TODO only one graph
         if hasattr(self, 'summary'):
             for name, value in self.__dict__.items():
-                if value.__class__.__base__ == nn.Module:
+                if isinstance(value, nn.Module):
                     self.summary.add_graph(value, torch.randn((1, *shapes[name]), device=self.device))
 
     def load(self, start_epoch=None, path=None):
@@ -158,7 +158,7 @@ class BaseModel(_ProcessHook, _MainHook):
                         os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'),
                         map_location=map_location
                     )
-                    if value.__class__.__base__ == nn.Module:
+                    if isinstance(value, (nn.Module, torch.optim.Optimizer)):
                         self.__dict__[name].load_state_dict(load_value)
                     else:
                         self.__dict__[name] = load_value
@@ -173,7 +173,7 @@ class BaseModel(_ProcessHook, _MainHook):
             for name, value in self.__dict__.items():
                 # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
                 if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
-                    save_value = value.state_dict() if value.__class__.__base__ == nn.Module else value
+                    save_value = value.state_dict() if isinstance(value, (nn.Module, torch.optim.Optimizer)) else value
                     torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
             main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
             torch.save(dict(epoch=epoch, msg=self.msg, main_msg=self.main_msg),
