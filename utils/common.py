@@ -1,13 +1,26 @@
 import copy
 import functools
+import os
+import random
+
+import numpy as np
 import torch
 
-
 __all__ = [
+    'set_seed',
     'deepcopy', 'merge_dict', 'hasattrs',
     'cmp_class', 'is_abstract',
     'all_subclasses', 'all_subclasses_not_abstract'
 ]
+
+
+def set_seed(seed=0):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
 
 def deepcopy(cls, no_deep=()):
