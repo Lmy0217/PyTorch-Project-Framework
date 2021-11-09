@@ -24,7 +24,7 @@ class _MainHook(object):
         msg.update(dict(while_flag=False))
 
     def process_test_msg_hook(self, msg: dict):
-        msg.update((dict(test_flag=False)))
+        msg.update(dict(test_flag=False))
 
 
 class _ProcessHook(object, metaclass=abc.ABCMeta):
