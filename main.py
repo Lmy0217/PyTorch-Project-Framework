@@ -303,6 +303,8 @@ if __name__ == '__main__':
             main.split(index_cross)
             main.model.process_pre_hook()
             if args.test_epoch is None:
+                if main.start_epoch == 0:
+                    main.test(main.start_epoch)
                 for epoch in range(main.start_epoch + 1, main.run_cfg.epochs + 1):
                     main.train(epoch)
                     if epoch % main.run_cfg.save_step == 0:
