@@ -1,13 +1,14 @@
-from torch.utils.data import DataLoader
-from torch import distributed
-import torch.nn as nn
-import torch
 import abc
 import os
+
+import torch
+import torch.nn as nn
+from torch import distributed
+from torch.utils.data import DataLoader
+
 import configs
 import models
 import utils
-
 
 __all__ = ['BaseModel']
 
@@ -80,8 +81,9 @@ class _ProcessHook(object, metaclass=abc.ABCMeta):
         return return_all
 
 
-class BaseModel(_ProcessHook, _MainHook):
+class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
 
+    logger: utils.Logger
     summary: utils.Summary
     main_msg: dict
 
@@ -153,11 +155,12 @@ class BaseModel(_ProcessHook, _MainHook):
             msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
             for name, value in self.__dict__.items():
                 if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
+                    load_path = os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth')
+                    if not os.path.exists(load_path) and isinstance(value, torch.optim.Optimizer):
+                        self.logger.info(f"IGNORE! Optimizer weight `{load_path}` not found!")
+                        continue
                     map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else None
-                    load_value = torch.load(
-                        os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth'),
-                        map_location=map_location
-                    )
+                    load_value = torch.load(load_path, map_location=map_location)
                     if isinstance(value, (nn.Module, torch.optim.Optimizer)):
                         self.__dict__[name].load_state_dict(load_value)
                     else:

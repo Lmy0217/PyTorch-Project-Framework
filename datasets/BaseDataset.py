@@ -1,14 +1,15 @@
-from typing import Union
-from torch.utils.data import Dataset
 import abc
-import torch
-import numpy as np
 import math
 import os
+from typing import Union
+
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+
 import configs
 import datasets
 import utils
-
 
 __all__ = ['BaseDataset', 'BaseSplit', 'SampleDataset']
 

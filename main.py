@@ -1,15 +1,16 @@
-from torch.utils.data import DataLoader
 import argparse
-import torch
 import os
+import platform
 import time
+
 import numpy as np
-import random
+import torch
+from torch.utils.data import DataLoader
+
 import configs
 import datasets
 import models
 import utils
-import platform
 
 
 class Main(object):
@@ -30,18 +31,10 @@ class Main(object):
         self._get_component()
 
     def _init(self):
-        self.set_seed(0)
+        utils.common.set_seed(0)
         configs.env.ci.run = self.args.ci
         # TODO remove msg['ci'], use configs.env.ci.run
         self.msg = dict(ci='ci' if configs.env.ci.run else None)
-
-    def set_seed(self, seed=0):
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-        os.environ['PYTHONHASHSEED'] = str(seed)
 
     def _get_component(self):
         self.dataset = datasets.functional.common.find(self.dataset_cfg.name)(self.dataset_cfg)
@@ -90,7 +83,7 @@ class Main(object):
         ) if len(self.testset) > 0 else list()
 
         self.model = models.functional.common.find(self.model_cfg.name)(
-            self.model_cfg, self.dataset.cfg, self.run_cfg, summary=self.summary, main_msg=self.msg)
+            self.model_cfg, self.dataset.cfg, self.run_cfg, logger=self.logger, summary=self.summary, main_msg=self.msg)
         self.start_epoch = self.model.load(self.args.test_epoch)
 
         if not self.run_cfg.distributed or (self.run_cfg.distributed and self.run_cfg.local_rank == 0):
@@ -108,7 +101,7 @@ class Main(object):
         return data_type, data_cfg
 
     def train(self, epoch):
-        self.set_seed(int(time.time()))
+        utils.common.set_seed(int(time.time()))
         torch.cuda.empty_cache()
         count, loss_all = 0, dict()
         self.train_loader = self.model.train_loader_hook(self.train_loader)
@@ -160,7 +153,7 @@ class Main(object):
 
     # TODO simplify
     def test(self, epoch):
-        self.set_seed(int(time.time()))
+        utils.common.set_seed(int(time.time()))
         torch.cuda.empty_cache()
         predict = dict()
         count = 0
@@ -280,7 +273,7 @@ class Main(object):
         self.logger.save_mat(predict_file, predict)
 
 
-if __name__ == '__main__':
+def run():
     parser = argparse.ArgumentParser(description='Template')
     parser.add_argument('-m', '--model_config_path', type=str, required=True, metavar='/path/to/model/config.json',
                         help='Path to model config .json file')
@@ -319,3 +312,7 @@ if __name__ == '__main__':
                     main.model.process_test_msg_hook(main.model.main_msg)
             main.model.process_hook()
             main.model.process_msg_hook(main.msg)
+
+
+if __name__ == '__main__':
+    run()

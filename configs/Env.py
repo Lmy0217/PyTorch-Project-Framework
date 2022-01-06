@@ -21,7 +21,7 @@ class Env(configs.BaseConfig):
             raise ValueError('Lack of `res/env/paths.json` file or `root_folder` value')
 
     def getdir(self, path):
-        return os.path.join(self.paths.root_folder, path)
+        return os.path.abspath(os.path.join(self.paths.root_folder, path))
 
     def chdir(self, path):
         os.chdir(self.getdir(path))
