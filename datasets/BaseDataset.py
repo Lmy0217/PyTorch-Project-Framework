@@ -1,6 +1,7 @@
 import abc
 import math
 import os
+import time
 from typing import Union
 
 import numpy as np
@@ -11,7 +12,7 @@ import configs
 import datasets
 import utils
 
-__all__ = ['BaseDataset', 'BaseSplit', 'SampleDataset']
+__all__ = ['BaseDataset', 'BaseSplit', 'SampleDataset', 'MulDataset']
 
 
 class BaseDataset(Dataset, metaclass=abc.ABCMeta):
@@ -174,10 +175,11 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
         return index_dict
 
     def __getitem__(self, index):
-        index_dict = self.recover(index)
-        sample_dict = dict()
-        for name, i in index_dict.items():
-            sample_dict[name] = self.data[name][i]
+        with torch.no_grad():
+            index_dict = self.recover(index)
+            sample_dict = dict()
+            for name, i in index_dict.items():
+                sample_dict[name] = self.data[name][i]
         return sample_dict, index
 
     def __len__(self):
@@ -294,6 +296,79 @@ class SampleDataset(Dataset):
 
     def __len__(self):
         return len(list(self.data.values())[0])
+
+
+class MulDataset(BaseDataset):
+
+    @staticmethod
+    def _more(cfg):
+        cfg = super()._more(cfg)
+        cfg.num_workers = 0
+        cfg.pin_memory = True
+        cfg.cross_folder = 0
+        for idx in range(len(cfg.cfgs)):
+            if not isinstance(cfg.cfgs[idx], configs.BaseConfig):
+                cfg.cfgs[idx] = configs.BaseConfig(utils.path.real_config_path(cfg.cfgs[idx], configs.env.paths.dataset_cfgs_folder))
+            cfg.cfgs[idx] = datasets.functional.common.more(cfg.cfgs[idx])
+            if cfg.cfgs[idx].num_workers > cfg.num_workers:
+                cfg.num_workers = cfg.cfgs[idx].num_workers
+            cfg.pin_memory &= cfg.cfgs[idx].pin_memory
+        cfg.count_cfgs = len(cfg.cfgs)
+        return cfg
+
+    def load(self):
+        ds = []
+        data_count = 0
+        for idx in range(self.cfg.count_cfgs):
+            d = datasets.functional.common.find(self.cfg.cfgs[idx].name)(self.cfg.cfgs[idx])
+            data_count += len(d)
+            ds.append(d)
+        return {'datasets': ds}, data_count
+
+    def split(self, index_cross=None):
+        self.trainsets, self.testsets = [], []
+        self.trainset_length, self.testset_length = [], []
+        for idx in range(self.cfg.count_cfgs):
+            self.data['datasets'][idx].set_logger(self.logger)
+            self.data['datasets'][idx].set_summary(self.summary)
+            trainset, testset = self.data['datasets'][idx].split(index_cross)
+            self.trainsets.append(trainset)
+            self.testsets.append(testset)
+            self.trainset_length.append(len(trainset))
+            self.testset_length.append(len(testset))
+        self.trainset_cumsum, self.testset_cumsum = np.cumsum(self.trainset_length), np.cumsum(self.testset_length)
+        self.trainset_length, self.testset_length = np.sum(self.trainset_length), np.sum(self.testset_length)
+        self.cfg.data_count = self.trainset_length + self.testset_length
+        index_range_trainset = [[0, self.trainset_length]]
+        index_range_testset = [[self.trainset_length, self.cfg.data_count]]
+        return datasets.BaseSplit(self, index_range_trainset), datasets.BaseSplit(self, index_range_testset)
+
+    def get_idx(self, index):
+        if not hasattr(self, 'flag_seed'):
+            self.flag_seed = None
+        if index < self.trainset_length:
+            idx_dataset = np.sum(index >= self.trainset_cumsum)
+            idx = (index - self.trainset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
+            if self.flag_seed is None or self.flag_seed == 'test':
+                utils.common.set_seed(int(time.time() + index))
+                self.flag_seed = 'train'
+                for i in range(self.cfg.count_cfgs):
+                    self.data['datasets'][i].flag_seed = self.flag_seed
+        else:
+            index = index - self.trainset_length
+            idx_dataset = np.sum(index >= self.testset_cumsum)
+            idx = (index - self.testset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
+            utils.common.set_seed(index * 3)
+            self.flag_seed = 'test'
+            for i in range(self.cfg.count_cfgs):
+                self.data['datasets'][i].flag_seed = self.flag_seed
+        return idx_dataset, idx
+
+    def __getitem__(self, index):
+        idx_dataset, idx = self.get_idx(index)
+        list_dataset = self.trainsets if self.flag_seed == 'train' else self.testsets
+        # print(index, self.flag_seed, idx_dataset, idx)
+        return list_dataset[idx_dataset][idx]
 
 
 if __name__ == "__main__":
