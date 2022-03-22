@@ -6,6 +6,7 @@ import time
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+import torch.distributed
 
 import configs
 import datasets
@@ -31,7 +32,7 @@ class Main(object):
         self._get_component()
 
     def _init(self):
-        utils.common.set_seed(0)
+        utils.common.set_seed(self.run_cfg.local_rank if self.run_cfg.distributed else 0)
         configs.env.ci.run = self.args.ci
         # TODO remove msg['ci'], use configs.env.ci.run
         self.msg = dict(ci='ci' if configs.env.ci.run else None)
@@ -74,7 +75,7 @@ class Main(object):
         self.run_cfg.test_batch_size = getattr(self.run_cfg, 'test_batch_size', self.run_cfg.batch_size)
         self.test_loader = DataLoader(
             self.testset,
-            batch_size=self.run_cfg.dist_batchsize if self.run_cfg.distributed else self.run_cfg.test_batch_size,
+            batch_size=self.run_cfg.dist_test_batchsize if self.run_cfg.distributed else self.run_cfg.test_batch_size,
             shuffle=False,
             collate_fn=getattr(self.testset.dataset, 'collate_fn', None),
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
@@ -101,13 +102,17 @@ class Main(object):
         return data_type, data_cfg
 
     def train(self, epoch):
-        utils.common.set_seed(int(time.time()))
+        utils.common.set_seed(int(time.time()) + epoch + (self.run_cfg.local_rank if self.run_cfg.distributed else 0))
         torch.cuda.empty_cache()
         count, loss_all = 0, dict()
+        if self.run_cfg.distributed:
+            self.train_loader.sampler.set_epoch(epoch)
         self.train_loader = self.model.train_loader_hook(self.train_loader)
         batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
         log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
         epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
+        epoch_info['local_rank'] = self.run_cfg.local_rank if self.run_cfg.distributed else 1
+        epoch_info['world_size'] = self.run_cfg.world_size if self.run_cfg.distributed else 1
         self.model.train_epoch_pre_hook(epoch_info, self.train_loader)
         for batch_idx, (sample_dict, index) in enumerate(self.train_loader):
             _count = len(list(sample_dict.values())[0])
@@ -153,16 +158,19 @@ class Main(object):
 
     # TODO simplify
     def test(self, epoch):
-        utils.common.set_seed(int(time.time()))
+        utils.common.set_seed(int(time.time()) + epoch + (self.run_cfg.local_rank if self.run_cfg.distributed else 0))
         torch.cuda.empty_cache()
-        predict = dict()
-        count = 0
+        predict, count = dict(), 0
         add_data_msgs, msgs, msgs_dict = None, None, dict()
         with torch.no_grad():
+            if self.run_cfg.distributed:
+                self.test_loader.sampler.set_epoch(epoch)
             self.test_loader = self.model.test_loader_hook(self.test_loader)
             batch_per_epoch, count_data = len(self.test_loader), len(self.test_loader.dataset)
             log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
             epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
+            epoch_info['local_rank'] = self.run_cfg.local_rank if self.run_cfg.distributed else 1
+            epoch_info['world_size'] = self.run_cfg.world_size if self.run_cfg.distributed else 1
             self.model.test_epoch_pre_hook(epoch_info, self.test_loader)
             for batch_idx, (sample_dict, index) in enumerate(self.test_loader):
                 _count = len(list(sample_dict.values())[0])
@@ -266,7 +274,20 @@ class Main(object):
                                 ms_slice = slice(one_shape.bT, one_shape.bT + one_shape.time)
                                 other['ms_slice'] = ms_slice
                         predict[name] = d.renorm(predict[name], data_type, **other)
-        predict = self.model.test_return_hook(epoch_info, predict)
+
+        # TODO maybe not true for renorm
+        if self.run_cfg.distributed:
+            torch.distributed.barrier()
+            predict_all = [None for _ in range(self.run_cfg.world_size)]
+            torch.distributed.all_gather_object(predict_all, predict)
+            if self.run_cfg.local_rank == 0:
+                for pidx in range(1, len(predict_all)):
+                    for k, v in predict_all[pidx].items():
+                        predict_all[0][k] = np.concatenate([predict_all[0][k], v], axis=0)
+                predict = self.model.test_return_hook(epoch_info, predict_all[0])
+        else:
+            predict = self.model.test_return_hook(epoch_info, predict)
+
         predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
                                     + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
                                     + configs.env.paths.predict_file)

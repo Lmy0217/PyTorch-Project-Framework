@@ -13,6 +13,7 @@ class Run(configs.BaseConfig):
     epochs: int
     save_step: int
     batch_size: int
+    test_batch_size: int
 
     def __init__(self, cfg, gpus: str = '0', **kwargs):
         super(Run, self).__init__(cfg, gpus=gpus, **kwargs)
@@ -35,7 +36,7 @@ class Run(configs.BaseConfig):
                            torch.distributed.is_available() and torch.distributed.is_nccl_available()
         if self.distributed:
             if 'LOCAL_RANK' not in os.environ:
-                raise ValueError('check set --use_env')
+                raise ValueError('check run `torchrun` or `python -m torch.distributed.launch --use_env`')
             self.local_rank = int(os.environ['LOCAL_RANK'])
 
             torch.cuda.set_device(self.local_rank)
@@ -46,6 +47,8 @@ class Run(configs.BaseConfig):
 
             assert self.batch_size % self.world_size == 0, 'batch_size must be multiple of CUDA device count'
             self.dist_batchsize = self.batch_size // self.world_size
+            assert self.test_batch_size % self.world_size == 0, 'test_batch_size must be multiple of CUDA device count'
+            self.dist_test_batchsize = self.test_batch_size // self.world_size
 
     def _set_gpus(self):
         if 'CUDA_VISIBLE_DEVICES' in os.environ.keys():
