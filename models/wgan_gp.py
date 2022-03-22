@@ -68,8 +68,8 @@ class WGAN_GP(models.BaseModel):
         super(WGAN_GP, self).__init__(cfg, data_cfg, run, **kwargs)
         self.G = Generator(self.cfg, self.data_cfg, **kwargs).to(self.device)
         self.D = Discriminator(self.cfg, self.data_cfg, **kwargs).to(self.device)
-        self.optimizer_G = torch.optim.Adam(self.G.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
-        self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
+        self.optimizer_G = torch.optim.Adam(self.G.parameters(), lr=self.run.lr, betas=self.run.betas)
+        self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=self.run.lr, betas=self.run.betas)
 
     @staticmethod
     def check_cfg(data_cfg, cfg):

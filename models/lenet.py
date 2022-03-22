@@ -41,7 +41,7 @@ class LeNet(models.BaseModel):
         super(LeNet, self).__init__(cfg, data_cfg, run, **kwargs)
         self.structure = Structure(self.cfg, self.data_cfg, **kwargs).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
-        self.optimizer = torch.optim.Adam(self.structure.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
+        self.optimizer = torch.optim.Adam(self.structure.parameters(), lr=self.run.lr, betas=self.run.betas)
 
     @staticmethod
     def check_cfg(data_cfg, cfg):
