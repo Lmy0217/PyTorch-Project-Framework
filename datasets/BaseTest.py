@@ -12,7 +12,7 @@ class BaseTest(object):
     def __init__(self, dataset):
         self.dataset = dataset
 
-    def run(self, cfg_filenames=None):
+    def run(self, cfg_filenames=None, set_type='all'):
         if isinstance(cfg_filenames, str):
             cfg_filenames = (cfg_filenames,)
         for dataset_cfg in datasets.functional.common.allcfgs():
@@ -29,7 +29,13 @@ class BaseTest(object):
                     trainset, testset = dataset.split(
                         index_cross=min(dataset.cfg.cross_folder, 1) if hasattr(dataset.cfg, 'cross_folder') else None)
 
-                    for splitset, set_name in zip([trainset, testset], ['Trainset', 'Testset']):
+                    if set_type == 'train':
+                        sets, names = [trainset], ['Trainset']
+                    elif set_type == 'test':
+                        sets, names = [testset], ['Testset']
+                    else:
+                        sets, names = [trainset, testset], ['Trainset', 'Testset']
+                    for splitset, set_name in zip(sets, names):
                         logger.info("-- " + set_name + " size: " + str(len(splitset)))
                         log_step = max(int(
                             np.power(10, np.floor(np.log10(len(splitset) / 100)))), 1) if len(splitset) > 0 else 0
