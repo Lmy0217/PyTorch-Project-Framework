@@ -38,4 +38,4 @@ if args.test_epoch is not None:
     process.append(str(args.test_epoch))
 if args.ci:
     process.append('--ci')
-subprocess.run(process)
+subprocess.run(process, check=True)
