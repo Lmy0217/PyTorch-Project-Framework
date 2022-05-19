@@ -302,15 +302,15 @@ class MulDataset(BaseDataset):
 
     @staticmethod
     def _more(cfg):
-        cfg = super()._more(cfg)
-        cfg.num_workers = 0
+        cfg = BaseDataset._more(cfg)
+        cfg.num_workers = np.inf
         cfg.pin_memory = True
         cfg.cross_folder = 0
         for idx in range(len(cfg.cfgs)):
             if not isinstance(cfg.cfgs[idx], configs.BaseConfig):
                 cfg.cfgs[idx] = configs.BaseConfig(utils.path.real_config_path(cfg.cfgs[idx], configs.env.paths.dataset_cfgs_folder))
             cfg.cfgs[idx] = datasets.functional.common.more(cfg.cfgs[idx])
-            if cfg.cfgs[idx].num_workers > cfg.num_workers:
+            if cfg.cfgs[idx].num_workers < cfg.num_workers:
                 cfg.num_workers = cfg.cfgs[idx].num_workers
             cfg.pin_memory &= cfg.cfgs[idx].pin_memory
         cfg.count_cfgs = len(cfg.cfgs)
@@ -368,7 +368,11 @@ class MulDataset(BaseDataset):
         idx_dataset, idx = self.get_idx(index)
         list_dataset = self.trainsets if self.flag_seed == 'train' else self.testsets
         # print(index, self.flag_seed, idx_dataset, idx)
-        return list_dataset[idx_dataset][idx]
+        item = list_dataset[idx_dataset][idx]
+        # TODO: nested overlays
+        item[0]['idx_dataset'] = torch.tensor([idx_dataset])
+        item[0]['idx_sample'] = torch.tensor([idx])
+        return item
 
 
 if __name__ == "__main__":

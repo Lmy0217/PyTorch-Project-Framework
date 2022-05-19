@@ -29,12 +29,12 @@ class Summary(object):
         return self.summary
 
     def norm(self, data, ms_type):
-        if self.dataset is not None and self.dataset.cfg.norm is not None and ms_type:
+        if self.dataset is not None and hasattr(self.dataset, 'cfg') and self.dataset.cfg.norm is not None and ms_type:
             data = self.dataset.norm(data, ms_type)
         return data
 
     def renorm(self, data, ms_type):
-        if self.dataset is not None and self.dataset.cfg.norm is not None and ms_type:
+        if self.dataset is not None and hasattr(self.dataset, 'cfg') and self.dataset.cfg.norm is not None and ms_type:
             data = self.dataset.renorm(data, ms_type)
         return data
 

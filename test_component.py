@@ -27,7 +27,7 @@ class Test(object):
     def test_models(self):
         self._path('models')
         for model in models.functional.common.all():
-            models.BaseTest(model).run(rm_save_folder=True)
+            models.BaseTest(model).run(rm_save_folder=True, one_dataset=True)
 
     def test_configs(self):
         self._path('res')

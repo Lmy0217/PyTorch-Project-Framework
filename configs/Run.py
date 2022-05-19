@@ -1,9 +1,9 @@
-from torch.backends import cudnn
-from torch import distributed
-import torch
-import configs
 import os
+import torch
+from torch import distributed
+from torch.backends import cudnn
 
+import configs
 
 __all__ = ['Run']
 

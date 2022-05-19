@@ -3,7 +3,7 @@ import models
 import utils
 
 
-__all__ = ['find', 'all', 'allcfgs']
+__all__ = ['all', 'allcfgs', 'find']
 
 
 def all():

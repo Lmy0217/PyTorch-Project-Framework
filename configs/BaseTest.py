@@ -1,7 +1,7 @@
-import configs
-import utils
 import os
 
+import configs
+import utils
 
 __all__ = ['BaseTest']
 

@@ -5,8 +5,8 @@ import time
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 import torch.distributed
+from torch.utils.data import DataLoader
 
 import configs
 import datasets

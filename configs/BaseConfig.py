@@ -1,6 +1,5 @@
-from typing import Union
 import json
-
+from typing import Union
 
 __all__ = ['BaseConfig']
 

@@ -1,6 +1,6 @@
-import configs
 import os
 
+import configs
 
 __all__ = ['env']
 
@@ -8,7 +8,7 @@ __all__ = ['env']
 class Env(configs.BaseConfig):
 
     def __init__(self):
-        super(Env, self).__init__(dict())
+        super(Env, self).__init__({})
         cfg_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../res/env'))
         if not os.path.exists(cfg_dir):
             os.makedirs(cfg_dir)

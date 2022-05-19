@@ -1,13 +1,13 @@
-from torch.utils.data import DataLoader
-import torch
-import numpy as np
 import os
 import shutil
+
+import torch
+from torch.utils.data import DataLoader
+
 import configs
 import datasets
 import models
 import utils
-
 
 __all__ = ['BaseTest']
 
@@ -17,7 +17,7 @@ class BaseTest(object):
     def __init__(self, model):
         self.model = model
 
-    def run(self, rm_save_folder=False):
+    def run(self, rm_save_folder=False, one_dataset=False):
         for model_cfg in models.functional.common.allcfgs():
             if hasattr(model_cfg, 'name') and model_cfg.name == self.model.__name__:
                 model_name = os.path.splitext(os.path.split(model_cfg._path)[1])[0]
@@ -154,5 +154,6 @@ class BaseTest(object):
                         logger.info('\t\tTesting config: ' + run_name + ' completed.')
                         break
                     logger.info('\tTesting dataset: ' + data_name + ' completed.')
-                    # break
+                    if one_dataset:
+                        break
                 logger.info('Testing model: ' + model_name + ' completed.')

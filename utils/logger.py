@@ -1,11 +1,10 @@
 import logging
-import platform
 import os
+import platform
+
 import scipy.io
+
 import configs
-
-from torch import Tensor
-
 
 __all__ = ['Logger']
 

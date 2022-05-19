@@ -3,7 +3,7 @@ import datasets
 import utils
 
 
-__all__ = ['more', 'find', 'all', 'allcfgs']
+__all__ = ['more', 'all', 'allcfgs', 'find']
 
 
 def more(cfg):

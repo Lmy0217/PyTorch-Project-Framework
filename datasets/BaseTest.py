@@ -1,8 +1,9 @@
-import datasets
-import utils
 import os
+
 import numpy as np
 
+import datasets
+import utils
 
 __all__ = ['BaseTest']
 

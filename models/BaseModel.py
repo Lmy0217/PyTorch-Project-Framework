@@ -95,8 +95,8 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
         self.path = utils.path.get_path(cfg, data_cfg, run)
         self.device = self.run.device
 
-        self._save_list = list()
-        self.msg = dict()
+        self._save_list = []
+        self.msg = {}
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -114,7 +114,7 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
                 self.__dict__[name].apply(fn)
 
     def modules(self):
-        m = dict()
+        m = {}
         for name, value in list(vars(self).items()):
             if isinstance(value, nn.Module):
                 m[name] = value
@@ -159,7 +159,7 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
                     if not os.path.exists(load_path) and isinstance(value, torch.optim.Optimizer):
                         self.logger.info(f"IGNORE! Optimizer weight `{load_path}` not found!")
                         continue
-                    map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else None
+                    map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else self.device
                     load_value = torch.load(load_path, map_location=map_location)
                     if isinstance(value, (nn.Module, torch.optim.Optimizer)):
                         self.__dict__[name].load_state_dict(load_value)
