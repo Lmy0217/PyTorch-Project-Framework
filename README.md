@@ -57,7 +57,6 @@ A high cohesion, low coupling, and plug-and-play project framework for PyTorch.
     Base dataset is an abstract class that must be Inherited by any dataset you create, the idea behind this is that there's much shared stuff between all datasets. The base dataset mainly contains:
   - `more`  - add / update unique configuration to dataset
   - `load`  - load dataset
-  - `_recover`  - split single data
   - `split`  - create trainset and testset
 
 
@@ -101,7 +100,7 @@ Here's how to use this framework, you should do the following:
 	    # YourDataset.py
 		class YourDataset(datasets.BaseDataset):
 		    def __init__(self, cfg, **kwargs):
-		    super(YourDataset, self).__init__(cfg, **kwargs)
+		        super().__init__(cfg, **kwargs)
 		```
 
 	- Override `load` method to load dataset
@@ -119,8 +118,8 @@ Here's how to use this framework, you should do the following:
 	        """
 
 	        data_count = 4
-	        source = np.random.rand(data_count, self.cfg.depth, self.cfg.height, self.cfg.width)
-	        target = np.random.randint(0, self.cfg.label_count, (data_count, 1))
+	        source = numpy.random.rand(data_count, self.cfg.depth, self.cfg.height, self.cfg.width)
+	        target = numpy.random.randint(0, self.cfg.label_count, (data_count, 1))
 
 	        return {'source': source, 'target': target}, data_count
 		```
@@ -154,29 +153,29 @@ Here's how to use this framework, you should do the following:
 	    # YourModel.py
 		class YourModel(models.BaseModels):
             def __init__(self, cfg, data_cfg, run, **kwargs):
-            super(YourModel, self).__init__(cfg, data_cfg, run, **kwargs)
+                super().__init__(cfg, data_cfg, run, **kwargs)
 
-            # The parameters in `cfg` are load from json file of your model's configuration
-            # The parameters in `data_cfg` are load from json file of dataset's configuration
-            # The parameters in `run` are load from json file of hyperparameter configuration
+                # The parameters in `cfg` are load from json file of your model's configuration
+                # The parameters in `data_cfg` are load from json file of dataset's configuration
+                # The parameters in `run` are load from json file of hyperparameter configuration
 
-            # Create model, optimizer, criterion, and etc.
-            # For example:
-            # - model: Linear
-            # - criterion: L1 loss
-            # - optimizer: Adam
-            self.model = nn.Linear(self.cfg.input_dims, self.cfg.output_dims).to(self.device)
-            self.criterion = nn.L1Loss.to(self.device)
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
+                # Create model, optimizer, criterion, and etc.
+                # For example:
+                # - model: Linear
+                # - criterion: L1 loss
+                # - optimizer: Adam
+                self.model = torch.nn.Linear(self.cfg.input_dims, self.cfg.output_dims).to(self.device)
+                self.criterion = torch.nn.L1Loss.to(self.device)
+                self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.run.lr, betas=(self.run.b1, self.run.b2))
         ```
 
     - Override two methods `train` and `test` to write the logic of the training and testing process
 
         ```python
         # In YourModel class
-        def train(self, batch_idx, sample_dict):
+        def train(self, epoch_info, sample_dict):
             """
-            batch_idx: the index of batch
+            epoch_info: the epoch information
             sample_dict: the dictionary of train data
 
             Implement the logic of training process
@@ -198,9 +197,9 @@ Here's how to use this framework, you should do the following:
 
             return {'loss': loss}
 
-        def test(self, batch_idx, sample_dict):
+        def test(self, epoch_info, sample_dict):
             """
-            batch_idx: the index of batch
+            batch_idx: the epoch information
             sample_dict: the dictionary of test data
 
             Implement the logic of testing process
@@ -260,9 +259,9 @@ Here's how to use this framework, you should do the following:
 	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0
 	    ```
 
-    Every `save_step` epoch trained model and data which want to saved will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
+    Every `save_step` epoch trained model and data that you want to save will be saved in the folder `save/[yourmodel]-[yourhp]-[yourdataset]-[index of cross-validation]`.
 
-    - If you want to testing epoch 10
+    - If you want to test epoch 10
 
 	    ```bash
 	    python3 -m main -d "yourdataset" -m "yourmodel" -r "yourhp" -g 0 -t 10

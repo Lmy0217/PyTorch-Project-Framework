@@ -1,4 +1,6 @@
 import os
+import warnings
+
 import torch
 from torch import distributed
 from torch.backends import cudnn
@@ -61,6 +63,9 @@ class Run(configs.BaseConfig):
         else:
             self.gpus = [int(g) for g in self.gpus.split(',')]
 
+        if torch.version.__version__.startswith('1.12.0'):
+            warnings.warn('os.environ["CUDA_VISIBLE_DEVICES"] has no effect in PyTorch 1.12.0. '
+                          'See https://github.com/pytorch/pytorch/issues/80876.')
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(g) for g in self.gpus])
 
     @staticmethod

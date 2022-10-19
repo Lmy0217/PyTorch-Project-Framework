@@ -30,7 +30,7 @@ jobs:
             . venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt > /dev/null
-            pip install torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+            pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu
 
       - save_cache:
           paths:

@@ -45,7 +45,8 @@ class Test(object):
     def test_datasets(self):
         self._path('datasets')
         for dataset in datasets.functional.common.all():
-            datasets.BaseTest(dataset).run()
+            if getattr(dataset, 'Testable', True):
+                datasets.BaseTest(dataset).run()
 
 
 if __name__ == "__main__":
