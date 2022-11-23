@@ -39,7 +39,7 @@ def cbf(dM: Union[torch.Tensor, np.ndarray], M0: Union[torch.Tensor, np.ndarray]
         module = torch
 
     zeros = module.zeros_like(dM)
-    maxs = module.ones_like(dM) * maxPerfusion
+    # maxs = module.ones_like(dM) * maxPerfusion
 
     dM = module.where(M0 <= 0, zeros, dM)
 

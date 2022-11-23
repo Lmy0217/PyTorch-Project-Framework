@@ -81,7 +81,7 @@ class Summary(object):
                 gray_tensor = self.renorm(gray_tensor, ms_type)
                 cfg = getattr(self.dataset.cfg, ms_type, None)
                 value_min, value_max = getattr(cfg, 'lower', None), getattr(cfg, 'upper', None)
-                value_range = (value_min, value_max) if value_min is not None and value_max is not None else None
+                # value_range = (value_min, value_max) if value_min is not None and value_max is not None else None
             if trans:
                 gray_tensor = gray_tensor.permute([0, 1, 3, 2])
             gray_tensor = make_grid(gray_tensor.reshape((gray_tensor.size(1), 1, gray_tensor.size(2),

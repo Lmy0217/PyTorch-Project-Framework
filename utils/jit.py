@@ -10,5 +10,4 @@ def script(fn):
             # print(fn.code)
         except Exception as e:
             print(e)
-            pass
     return fn

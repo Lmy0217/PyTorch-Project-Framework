@@ -3,7 +3,6 @@ import os
 
 import torch
 import torch.nn as nn
-from torch import distributed
 from torch.utils.data import DataLoader
 
 import configs
