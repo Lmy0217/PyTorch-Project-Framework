@@ -3,9 +3,9 @@ version: 2.1
 workflows:
   test:
     jobs:
-      - test-py37
       - test-py38
       - test-py39
+      - test-py310
 
 jobs:
   test-py36: &test-template
@@ -59,11 +59,6 @@ jobs:
           path: test-reports
           destination: test-reports
 
-  test-py37:
-    <<: *test-template
-    docker:
-      - image: circleci/python:3.7
-
   test-py38:
     <<: *test-template
     docker:
@@ -73,3 +68,8 @@ jobs:
     <<: *test-template
     docker:
       - image: circleci/python:3.9
+
+  test-py310:
+    <<: *test-template
+    docker:
+      - image: circleci/python:3.10
