@@ -2,8 +2,6 @@ import os
 import warnings
 
 import torch
-from torch import distributed
-from torch.backends import cudnn
 
 import configs
 

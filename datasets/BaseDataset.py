@@ -350,7 +350,7 @@ class MulDataset(BaseDataset):
             idx_dataset = np.sum(index >= self.trainset_cumsum)
             idx = (index - self.trainset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
             if self.flag_seed is None or self.flag_seed == 'test':
-                utils.common.set_seed(int(time.time() + index))
+                utils.common.set_seed(int(time.time() * 1000) % (1 << 32) + index)
                 self.flag_seed = 'train'
                 for i in range(self.cfg.count_cfgs):
                     self.data['datasets'][i].flag_seed = self.flag_seed
