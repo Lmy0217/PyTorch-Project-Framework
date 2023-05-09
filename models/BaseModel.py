@@ -112,6 +112,11 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
             if isinstance(value, nn.Module):
                 self.__dict__[name].apply(fn)
 
+    def compile(self):
+        for name, value in self.__dict__.items():
+            if isinstance(value, nn.Module):
+                self.__dict__[name] = utils.jit.compile(value)
+
     def modules(self):
         m = {}
         for name, value in list(vars(self).items()):

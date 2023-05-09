@@ -238,6 +238,22 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
         self._reset_norm(norm_range=norm_range)
         return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_testset)
 
+    def split_v2(self, train_test_range, series_per_data=None):
+        series_per_data = series_per_data or [1] * len(train_test_range)
+
+        self.trainset_length = int(series_per_data[0] * train_test_range[0])
+        self.valset_length = int(series_per_data[1] * train_test_range[1])
+        self.testset_length = int(series_per_data[-1] * train_test_range[-1])
+
+        index_range_trainset = [[0, self.trainset_length]]
+        index_range_valset = [[self.trainset_length, self.trainset_length + self.valset_length]]
+        if len(train_test_range) == 3:
+            index_range_testset = [[self.trainset_length + self.valset_length, self.trainset_length + self.valset_length + self.testset_length]]
+        else:
+            index_range_testset = [[self.trainset_length, self.trainset_length + self.testset_length]]
+
+        return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_valset), BaseSplit(self, index_range_testset)
+
 
 class BaseSplit(Dataset):
 

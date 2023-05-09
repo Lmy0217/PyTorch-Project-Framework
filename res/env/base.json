@@ -1,5 +1,6 @@
 {
   "jit": {
-    "script": true
+    "script": true,
+    "compile": true
   }
 }

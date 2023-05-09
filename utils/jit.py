@@ -11,3 +11,13 @@ def script(fn):
         except Exception as e:
             print(e)
     return fn
+
+
+def compile(fn):
+    if configs.env.base.jit.compile and hasattr(torch, 'compile'):
+        try:
+            fn = torch.compile(fn)
+            # print(fn.code)
+        except Exception as e:
+            print(e)
+    return fn

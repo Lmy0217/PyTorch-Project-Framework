@@ -27,10 +27,9 @@ class Logger(object):
         global _utils_logger
         if '_utils_logger' not in globals():
             _utils_logger = logging.getLogger()
-        else:
-            for idx in reversed(range(len(_utils_logger.handlers))):
-                _utils_logger.handlers[idx].close()
-                _utils_logger.removeHandler(_utils_logger.handlers[idx])
+        for idx in reversed(range(len(_utils_logger.handlers))):
+            _utils_logger.handlers[idx].close()
+            _utils_logger.removeHandler(_utils_logger.handlers[idx])
 
         _utils_logger.setLevel(level=logging.INFO)
         formatter = logging.Formatter('%(asctime)s :  %(message)s')
