@@ -1,4 +1,4 @@
-from .BaseDataset import BaseDataset, BaseSplit, SampleDataset, MulDataset
+from .BaseDataset import BaseDataset, BaseSplit, EmptySplit, SampleDataset, MulDataset
 from .BaseTest import BaseTest
 from . import functional
 

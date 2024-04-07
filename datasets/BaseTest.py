@@ -27,15 +27,21 @@ class BaseTest(object):
                     dataset.set_logger(logger)
                     summary = utils.Summary(save_folder, dataset=dataset)
                     dataset.set_summary(summary)
-                    trainset, testset = dataset.split(
+                    splitsets = dataset.split(
                         index_cross=min(dataset.cfg.cross_folder, 1) if hasattr(dataset.cfg, 'cross_folder') else None)
+                    trainset, testset = splitsets[0], splitsets[-1]
+                    valset = datasets.EmptySplit(dataset) if len(splitsets) == 2 else splitsets[1]
 
                     if set_type == 'train':
                         sets, names = [trainset], ['Trainset']
+                    elif set_type == 'val':
+                        sets, names = [valset], ['Valset']
                     elif set_type == 'test':
                         sets, names = [testset], ['Testset']
+                    elif set_type == 'valtest':
+                        sets, names = [valset, testset], ['Valset', 'Testset']
                     else:
-                        sets, names = [trainset, testset], ['Trainset', 'Testset']
+                        sets, names = [trainset, valset, testset], ['Trainset', 'Valset', 'Testset']
                     for splitset, set_name in zip(sets, names):
                         logger.info("-- " + set_name + " size: " + str(len(splitset)))
                         log_step = max(int(

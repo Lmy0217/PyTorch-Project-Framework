@@ -54,9 +54,13 @@ class Main(object):
         self.summary = utils.Summary(self.path, dataset=self.dataset)
         self.dataset.set_summary(self.summary)
 
-        self.trainset, self.testset = self.dataset.split(index_cross)
+        splitsets = self.dataset.split(index_cross)
+        self.trainset, self.testset = splitsets[0], splitsets[-1]
+        self.valset = datasets.EmptySplit(self.dataset) if len(splitsets) == 2 else splitsets[1]
 
         train_sampler = torch.utils.data.distributed.DistributedSampler(self.trainset, shuffle=True) \
+            if self.run_cfg.distributed else None
+        val_sampler = torch.utils.data.distributed.DistributedSampler(self.valset, shuffle=False) \
             if self.run_cfg.distributed else None
         test_sampler = torch.utils.data.distributed.DistributedSampler(self.testset, shuffle=False) \
             if self.run_cfg.distributed else None
@@ -70,9 +74,18 @@ class Main(object):
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
             pin_memory=self.dataset.cfg.pin_memory,
             sampler=train_sampler
-        ) if len(self.trainset) > 0 else list()
+        )
 
         self.run_cfg.test_batch_size = getattr(self.run_cfg, 'test_batch_size', self.run_cfg.batch_size)
+        self.val_loader = DataLoader(
+            self.valset,
+            batch_size=self.run_cfg.dist_test_batchsize if self.run_cfg.distributed else self.run_cfg.test_batch_size,
+            shuffle=False,
+            collate_fn=getattr(self.valset.dataset, 'collate_fn', None),
+            num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
+            pin_memory=self.dataset.cfg.pin_memory,
+            sampler=val_sampler
+        )
         self.test_loader = DataLoader(
             self.testset,
             batch_size=self.run_cfg.dist_test_batchsize if self.run_cfg.distributed else self.run_cfg.test_batch_size,
@@ -81,7 +94,7 @@ class Main(object):
             num_workers=0 if platform.system() == 'Windows' else self.dataset.cfg.num_workers,
             pin_memory=self.dataset.cfg.pin_memory,
             sampler=test_sampler
-        ) if len(self.testset) > 0 else list()
+        )
 
         self.model = models.functional.common.find(self.model_cfg.name)(
             self.model_cfg, self.dataset.cfg, self.run_cfg, logger=self.logger, summary=self.summary, main_msg=self.msg)
@@ -109,7 +122,7 @@ class Main(object):
             self.train_loader.sampler.set_epoch(epoch)
         self.train_loader = self.model.train_loader_hook(self.train_loader)
         batch_per_epoch, count_data = len(self.train_loader), len(self.train_loader.dataset)
-        log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
+        log_step = 1#max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
         epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
         epoch_info['local_rank'] = self.run_cfg.local_rank if self.run_cfg.distributed else 1
         epoch_info['world_size'] = self.run_cfg.world_size if self.run_cfg.distributed else 1
@@ -118,6 +131,7 @@ class Main(object):
             _count = len(list(sample_dict.values())[0])
             epoch_info['batch_idx'] = batch_idx
             epoch_info['index'] = index
+            epoch_info['index_raw'] = [self.train_loader.dataset.indexset[i] for i in index]
             epoch_info['batch_count'] = _count
             self.summary.update_epochinfo(epoch_info)
             loss_dict = self.model.train_process(epoch_info, sample_dict)
@@ -137,7 +151,7 @@ class Main(object):
                         )
                 else:
                     # TODO error when `dataset` has `collate_fn`, item include batch and `count_data` is count of batch,
-                    #      but `count` is all of items.
+                    #      but `count` is all items.
                     self.logger.info_scalars('Train Epoch: {} [{}/{} ({:.0f}%)]\t',
                                              (epoch, count, count_data, 100. * count / count_data), loss_dict)
         self.model.train_epoch_hook(epoch_info, self.train_loader)
@@ -157,25 +171,28 @@ class Main(object):
             self.model.save(epoch)
 
     # TODO simplify
-    def test(self, epoch):
+    def test(self, epoch, data_loader=None, log_text='Test'):
+        if data_loader is None:
+            data_loader = self.test_loader
         utils.common.set_seed(int(time.time()) + epoch + (self.run_cfg.local_rank if self.run_cfg.distributed else 0))
         torch.cuda.empty_cache()
         predict, count = dict(), 0
         add_data_msgs, msgs, msgs_dict = None, None, dict()
         with torch.no_grad():
             if self.run_cfg.distributed:
-                self.test_loader.sampler.set_epoch(epoch)
-            self.test_loader = self.model.test_loader_hook(self.test_loader)
-            batch_per_epoch, count_data = len(self.test_loader), len(self.test_loader.dataset)
-            log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1) if batch_per_epoch > 0 else 1
-            epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data}
+                data_loader.sampler.set_epoch(epoch)
+            data_loader = self.model.test_loader_hook(data_loader)
+            batch_per_epoch, count_data = len(data_loader), len(data_loader.dataset)
+            log_step = max(int(np.power(10, np.floor(np.log10(batch_per_epoch / 10)))), 1)
+            epoch_info = {'epoch': epoch, 'batch_per_epoch': batch_per_epoch, 'count_data': count_data, 'log_text': log_text}
             epoch_info['local_rank'] = self.run_cfg.local_rank if self.run_cfg.distributed else 1
             epoch_info['world_size'] = self.run_cfg.world_size if self.run_cfg.distributed else 1
-            self.model.test_epoch_pre_hook(epoch_info, self.test_loader)
-            for batch_idx, (sample_dict, index) in enumerate(self.test_loader):
+            self.model.test_epoch_pre_hook(epoch_info, data_loader)
+            for batch_idx, (sample_dict, index) in enumerate(data_loader):
                 _count = len(list(sample_dict.values())[0])
                 epoch_info['batch_idx'] = batch_idx
                 epoch_info['index'] = index
+                epoch_info['index_raw'] = [data_loader.dataset.indexset[i] for i in index]
                 epoch_info['batch_count'] = _count
                 self.summary.update_epochinfo(epoch_info)
                 output_dict = self.model.test_process(epoch_info, sample_dict)
@@ -196,11 +213,11 @@ class Main(object):
                     if self.run_cfg.distributed:
                         count_rank = (count - _count) * self.run_cfg.world_size + _count * (self.run_cfg.local_rank + 1)
                         with utils.ddp.sequence():
-                            self.logger.info('Test Epoch: {} rank {} [{}/{} ({:.0f}%)]'.format(
-                                epoch, self.run_cfg.local_rank, count_rank, count_data, 100. * count_rank / count_data))
+                            self.logger.info('{} Epoch: {} rank {} [{}/{} ({:.0f}%)]'.format(
+                                log_text, epoch, self.run_cfg.local_rank, count_rank, count_data, 100. * count_rank / count_data))
                     else:
-                        self.logger.info('Test Epoch: {} [{}/{} ({:.0f}%)]'.format(
-                            epoch, count, count_data, 100. * count / count_data))
+                        self.logger.info('{} Epoch: {} [{}/{} ({:.0f}%)]'.format(
+                            log_text, epoch, count, count_data, 100. * count / count_data))
                 if len(predict) != len(output_dict):
                     self.predict_device = torch.device(
                         'cuda' if self.model.run.cuda and self.dataset.cfg.predict_cuda else 'cpu') \
@@ -224,7 +241,7 @@ class Main(object):
                             else:
                                 predict_shape = value.shape[1:]
                             predict[name] = torch.zeros(
-                                self.testset.raw_count, *predict_shape, dtype=torch.float32,
+                                data_loader.dataset.raw_count, *predict_shape, dtype=torch.float32,
                                 device=self.predict_device or value.device)
                         else:
                             predict[name] = torch.tensor(
@@ -235,7 +252,7 @@ class Main(object):
                     data_type, data_cfg = self._get_type(self.dataset.cfg, name, test=True)
                     if data_cfg is not None:
                         for i in range(len(value)):
-                            slice_recover = self.testset.recover(index[i])[data_type]
+                            slice_recover = data_loader.dataset.recover(index[i])[data_type]
                             if add_data_msgs is not None:
                                 slice_recover = slice_recover[0]
                             predict[name][slice_recover] = value[i]
@@ -243,15 +260,15 @@ class Main(object):
                         predict[name] = torch.cat((predict[name], value.float()
                         if value.shape else torch.tensor([value], dtype=torch.float32,
                                                          device=self.predict_device or value.device)))
-            self.model.test_epoch_hook(epoch_info, self.test_loader)
+            self.model.test_epoch_hook(epoch_info, data_loader)
             if msgs is not None:
-                log_msg = 'Test Epoch: {}'
+                log_msg = '{} Epoch: {}'
                 accuracy = list()
                 for name, value in msgs_dict.items():
                     log_msg += ' ' + name + ': {:0.2f}%'
                     msgs_dict[name] = 100. * value / count
                     accuracy.append(msgs_dict[name])
-                self.logger.info(log_msg.format(epoch, *accuracy))
+                self.logger.info(log_msg.format(log_text, epoch, *accuracy))
                 self.summary.add_scalars('Accuracy', msgs_dict, epoch)
 
         # TODO do not support chain norm and renorm
@@ -288,10 +305,15 @@ class Main(object):
         else:
             predict = self.model.test_return_hook(epoch_info, predict)
 
-        predict_file = os.path.join(self.path, self.model.name + '_' + str(epoch)
-                                    + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
-                                    + configs.env.paths.predict_file)
-        self.logger.save_mat(predict_file, predict)
+        if predict:
+            predict_file = os.path.join(self.path, self.model.name + '_' + log_text.lower() + '_' + str(epoch)
+                                        + (('_' + '-'.join(self.model.msg.values())) if self.model.msg else '')
+                                        + configs.env.paths.predict_file)
+            self.logger.save_mat(predict_file, predict)
+
+    def val_test(self, epoch):
+        self.test(epoch, data_loader=self.val_loader, log_text='Val')
+        self.test(epoch, data_loader=self.test_loader, log_text='Test')
 
 
 def run():
@@ -318,18 +340,18 @@ def run():
             main.model.process_pre_hook()
             if args.test_epoch is None:
                 if main.start_epoch == 0:
-                    main.test(main.start_epoch)
+                    main.val_test(main.start_epoch)  # TODO set flag only_test=False
                 for epoch in range(main.start_epoch + 1, main.run_cfg.epochs + 1):
                     main.train(epoch)
                     if epoch % main.run_cfg.save_step == 0:
                         main.model.main_msg.update(dict(test_idx=1, test_flag=True, only_test=False))
                         while main.model.main_msg['test_flag']:
-                            main.test(epoch)
+                            main.val_test(epoch)
                             main.model.process_test_msg_hook(main.model.main_msg)
             else:
                 main.model.main_msg.update(dict(test_idx=1, test_flag=True, only_test=True))
                 while main.model.main_msg['test_flag']:
-                    main.test(main.start_epoch)
+                    main.val_test(main.start_epoch)
                     main.model.process_test_msg_hook(main.model.main_msg)
             main.model.process_hook()
             main.model.process_msg_hook(main.msg)

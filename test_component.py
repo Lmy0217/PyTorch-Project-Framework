@@ -1,7 +1,10 @@
 import os
-import models
+
+import torch
+
 import configs
 import datasets
+import models
 
 
 class Test(object):
@@ -9,9 +12,12 @@ class Test(object):
     def __init__(self):
         self.ci = configs.env.ci.run
         configs.env.ci.run = True
+        self.dtype = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float32)
 
     def __del__(self):
         configs.env.ci.run = self.ci
+        torch.set_default_dtype(self.dtype)
 
     def _path(self, path):
         full_path = configs.env.getdir(path)

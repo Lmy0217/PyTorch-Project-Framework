@@ -22,7 +22,10 @@ class Run(configs.BaseConfig):
     def _more(self):
         self._set_gpus()
         if self.gpus:
-            self.cuda = torch.cuda.is_available() and getattr(self, 'cuda', True)
+            self.cuda = getattr(self, 'cuda', True)
+            if self.cuda and not torch.cuda.is_available():
+                warnings.warn(f"Device (gpu_id={os.environ['CUDA_VISIBLE_DEVICES']}) or CUDA is not available, will use CPU instead.")
+                self.cuda = False
             self.device = torch.device("cuda", 0) if self.cuda else torch.device("cpu")
         else:
             self.cuda = False

@@ -12,7 +12,7 @@ import configs
 import datasets
 import utils
 
-__all__ = ['BaseDataset', 'BaseSplit', 'SampleDataset', 'MulDataset']
+__all__ = ['BaseDataset', 'BaseSplit', 'EmptySplit', 'SampleDataset', 'MulDataset']
 
 
 class BaseDataset(Dataset, metaclass=abc.ABCMeta):
@@ -238,19 +238,14 @@ class BaseDataset(Dataset, metaclass=abc.ABCMeta):
         self._reset_norm(norm_range=norm_range)
         return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_testset)
 
-    def split_v2(self, train_test_range, series_per_data=None):
-        series_per_data = series_per_data or [1] * len(train_test_range)
-
-        self.trainset_length = int(series_per_data[0] * train_test_range[0])
-        self.valset_length = int(series_per_data[1] * train_test_range[1])
-        self.testset_length = int(series_per_data[-1] * train_test_range[-1])
+    def split_v2(self, split_range):
+        self.trainset_length, self.testset_length = split_range[0], split_range[-1]
+        self.valset_length = 0 if len(split_range) == 2 else split_range[1]
+        self.cfg.data_count = self.trainset_length + self.valset_length + self.testset_length
 
         index_range_trainset = [[0, self.trainset_length]]
         index_range_valset = [[self.trainset_length, self.trainset_length + self.valset_length]]
-        if len(train_test_range) == 3:
-            index_range_testset = [[self.trainset_length + self.valset_length, self.trainset_length + self.valset_length + self.testset_length]]
-        else:
-            index_range_testset = [[self.trainset_length, self.trainset_length + self.testset_length]]
+        index_range_testset = [[self.trainset_length + self.valset_length, self.cfg.data_count]]
 
         return BaseSplit(self, index_range_trainset), BaseSplit(self, index_range_valset), BaseSplit(self, index_range_testset)
 
@@ -299,6 +294,12 @@ class BaseSplit(Dataset):
         self.summary = summary
 
 
+class EmptySplit(BaseSplit):
+
+    def __init__(self, datasets):
+        super().__init__(datasets, [])
+
+
 class SampleDataset(Dataset):
 
     def __init__(self, data: dict):
@@ -342,22 +343,27 @@ class MulDataset(BaseDataset):
         return {'datasets': ds}, data_count
 
     def split(self, index_cross=None):
-        self.trainsets, self.testsets = [], []
-        self.trainset_length, self.testset_length = [], []
+        self.trainsets, self.valsets, self.testsets = [], [], []
+        self.trainset_length, self.valset_length, self.testset_length = [], [], []
         for idx in range(self.cfg.count_cfgs):
             self.data['datasets'][idx].set_logger(self.logger)
             self.data['datasets'][idx].set_summary(self.summary)
-            trainset, testset = self.data['datasets'][idx].split(index_cross)
+            splitsets = self.data['datasets'][idx].split(index_cross)
+            trainset, testset = splitsets[0], splitsets[-1]
+            valset = EmptySplit(self.data['datasets'][idx]) if len(splitsets) == 2 else splitsets[1]
             self.trainsets.append(trainset)
+            self.valsets.append(valset)
             self.testsets.append(testset)
             self.trainset_length.append(len(trainset))
+            self.valset_length.append(len(valset))
             self.testset_length.append(len(testset))
-        self.trainset_cumsum, self.testset_cumsum = np.cumsum(self.trainset_length), np.cumsum(self.testset_length)
-        self.trainset_length, self.testset_length = np.sum(self.trainset_length), np.sum(self.testset_length)
-        self.cfg.data_count = self.trainset_length + self.testset_length
+        self.trainset_cumsum, self.valset_cumsum, self.testset_cumsum = np.cumsum(self.trainset_length), np.cumsum(self.valset_length), np.cumsum(self.testset_length)
+        self.trainset_length, self.valset_length, self.testset_length = np.sum(self.trainset_length), np.sum(self.valset_length), np.sum(self.testset_length)
+        self.cfg.data_count = self.trainset_length + self.valset_length + self.testset_length
         index_range_trainset = [[0, self.trainset_length]]
-        index_range_testset = [[self.trainset_length, self.cfg.data_count]]
-        return datasets.BaseSplit(self, index_range_trainset), datasets.BaseSplit(self, index_range_testset)
+        index_range_valset = [[self.trainset_length, self.trainset_length + self.valset_length]]
+        index_range_testset = [[self.trainset_length + self.valset_length, self.cfg.data_count]]
+        return datasets.BaseSplit(self, index_range_trainset), datasets.BaseSplit(self, index_range_valset), datasets.BaseSplit(self, index_range_testset)
 
     def get_idx(self, index):
         if not hasattr(self, 'flag_seed'):
@@ -365,24 +371,30 @@ class MulDataset(BaseDataset):
         if index < self.trainset_length:
             idx_dataset = np.sum(index >= self.trainset_cumsum)
             idx = (index - self.trainset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
-            if self.flag_seed is None or self.flag_seed == 'test':
+            if self.flag_seed is None or self.flag_seed in ['val', 'test']:
                 utils.common.set_seed(int(time.time() * 1000) % (1 << 32) + index)
-                self.flag_seed = 'train'
-                for i in range(self.cfg.count_cfgs):
-                    self.data['datasets'][i].flag_seed = self.flag_seed
-        else:
+            list_dataset = self.trainsets
+            self.flag_seed = 'train'
+        elif index < self.trainset_length + self.valset_length:
             index = index - self.trainset_length
+            idx_dataset = np.sum(index >= self.valset_cumsum)
+            idx = (index - self.valset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
+            utils.common.set_seed(index * 3)
+            list_dataset = self.valsets
+            self.flag_seed = 'val'
+        else:
+            index = index - self.trainset_length - self.valset_length
             idx_dataset = np.sum(index >= self.testset_cumsum)
             idx = (index - self.testset_cumsum[idx_dataset - 1]) if idx_dataset > 0 else index
             utils.common.set_seed(index * 3)
+            list_dataset = self.testsets
             self.flag_seed = 'test'
-            for i in range(self.cfg.count_cfgs):
-                self.data['datasets'][i].flag_seed = self.flag_seed
-        return idx_dataset, idx
+        for i in range(self.cfg.count_cfgs):
+            self.data['datasets'][i].flag_seed = self.flag_seed
+        return list_dataset, idx_dataset, idx
 
     def __getitem__(self, index):
-        idx_dataset, idx = self.get_idx(index)
-        list_dataset = self.trainsets if self.flag_seed == 'train' else self.testsets
+        list_dataset, idx_dataset, idx = self.get_idx(index)
         # print(index, self.flag_seed, idx_dataset, idx)
         item = list_dataset[idx_dataset][idx]
         # TODO: nested overlays

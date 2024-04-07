@@ -18,7 +18,7 @@ class BaseTest(object):
         self.ci = configs.env.ci.run
         configs.env.ci.run = True
         self.bs = configs.env.ci.batchsize
-        configs.env.ci.batchsize = 1
+        configs.env.ci.batchsize = 2
         self.model = model
 
     def __del__(self):
@@ -38,13 +38,15 @@ class BaseTest(object):
                         continue
                     dataset = datasets.functional.common.find(data_cfg.name)(data_cfg)
                     dataset.set_logger(logger)
+                    dataset.set_summary(None)
                     logger.info('\tTesting dataset: ' + dataset.name + ' ...')
 
                     data_cfg.index_cross = 1
-                    trainset, testset = dataset.split(1)
+                    splitsets = dataset.split(1)
+                    trainset, testset = splitsets[0], splitsets[-1]
                     test_batchsize = configs.env.ci.batchsize
-                    sample_loader = DataLoader(trainset, batch_size=configs.env.ci.batchsize, pin_memory=True)
-                    test_sample_loader = DataLoader(testset, batch_size=test_batchsize, pin_memory=True)
+                    sample_loader = DataLoader(trainset, batch_size=configs.env.ci.batchsize, pin_memory=trainset.dataset.cfg.pin_memory)
+                    test_sample_loader = DataLoader(testset, batch_size=test_batchsize, pin_memory=testset.dataset.cfg.pin_memory)
 
                     for run_cfg in configs.Run.all():
                         if run_cfg.name not in ['sp1']:
@@ -91,8 +93,9 @@ class BaseTest(object):
                                 torch.cuda.empty_cache()
                                 with torch.no_grad():
                                     test_sample_loader = model.test_loader_hook(test_sample_loader)
-                                    epoch_info.update(dict(index=torch.arange(test_batchsize), batch_count=test_batchsize, count_data=test_batchsize))
+                                    epoch_info.update(dict(index=torch.arange(test_batchsize), batch_count=test_batchsize, count_data=test_batchsize, log_text='Test'))
                                     model.test_epoch_pre_hook(epoch_info, test_sample_loader)
+                                    result_dict = {}
                                     for batch_idx, (test_sample_dict, index) in enumerate(test_sample_loader):
                                         result_dict = model.test_process(epoch_info, test_sample_dict)
                                         break

@@ -145,6 +145,7 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
     def load(self, start_epoch=None, path=None):
         assert start_epoch is None or (isinstance(start_epoch, int) and start_epoch >= 0)
         path = path or self.path
+        load_optimizer = start_epoch is None
         if start_epoch is None:
             main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
             check_path = os.path.join(path, self.name + main_msg + configs.env.paths.check_file)
@@ -159,9 +160,11 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
             msg = ('_' + '-'.join(self.msg.values())) if self.msg else ''
             for name, value in self.__dict__.items():
                 if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
-                    load_path = os.path.join(path, self.name + '_' + name + '_' + str(start_epoch) + msg + '.pth')
-                    if not os.path.exists(load_path) and isinstance(value, torch.optim.Optimizer):
-                        self.logger.info(f"IGNORE! Optimizer weight `{load_path}` not found!")
+                    epoch_msg = ('_' + str(start_epoch)) if not isinstance(value, torch.optim.Optimizer) else ''
+                    load_path = os.path.join(path, self.name + '_' + name + epoch_msg + msg + '.pth')
+                    if not (load_optimizer and os.path.exists(load_path)) and isinstance(value, torch.optim.Optimizer):
+                        if not os.path.exists(load_path):
+                            self.logger.info(f"IGNORE! Optimizer weight `{load_path}` not found!")
                         continue
                     map_location = {'cuda:%d' % 0: 'cuda:%d' % self.run.local_rank} if self.run.distributed else self.device
                     load_value = torch.load(load_path, map_location=map_location)
@@ -181,7 +184,8 @@ class BaseModel(_ProcessHook, _MainHook, metaclass=abc.ABCMeta):
                 # TODO remove criterion, change criterion super object to `torch.nn.modules.loss._Loss`?
                 if isinstance(value, (nn.Module, torch.optim.Optimizer)) or name in self._save_list:
                     save_value = value.state_dict() if isinstance(value, (nn.Module, torch.optim.Optimizer)) else value
-                    torch.save(save_value, os.path.join(path, self.name + '_' + name + '_' + str(epoch) + msg + '.pth'))
+                    epoch_msg = ('_' + str(epoch)) if not isinstance(value, torch.optim.Optimizer) else ''
+                    torch.save(save_value, os.path.join(path, self.name + '_' + name + epoch_msg + msg + '.pth'))
             main_msg = ('_' + str(self.main_msg['while_idx'])) if self.main_msg['while_idx'] > 1 else ''
             torch.save(dict(epoch=epoch, msg=self.msg, main_msg=self.main_msg),
                        os.path.join(path, self.name + main_msg + configs.env.paths.check_file))

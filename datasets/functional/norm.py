@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 __all__ = [
@@ -27,7 +28,10 @@ def triple_renorm(data, mean, std):
 
 def threshold_norm(data, lower, upper):
     assert lower < upper
-    data = np.clip(data, a_min=lower, a_max=upper)
+    if isinstance(data, torch.Tensor):
+        data = torch.clip(data, min=lower, max=upper)
+    else:
+        data = np.clip(data, a_min=lower, a_max=upper)
     data = (data - lower) / (upper - lower)
     data = (data - 0.5) / 0.5
     return data
