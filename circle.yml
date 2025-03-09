@@ -3,14 +3,16 @@ version: 2.1
 workflows:
   test:
     jobs:
-      - test-py38
-      - test-py39
-      - test-py310
+      - job-py38
+      - job-py39
+      - job-py310
+      - job-py311
+      - job-py312
 
 jobs:
-  test-py36: &test-template
+  job-py38: &job-template
     docker:
-      - image: circleci/python:3.6
+      - image: cimg/python:3.8
 
     working_directory: ~/repo
 
@@ -59,17 +61,22 @@ jobs:
           path: test-reports
           destination: test-reports
 
-  test-py38:
-    <<: *test-template
+  job-py39:
+    <<: *job-template
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.9
 
-  test-py39:
-    <<: *test-template
+  job-py310:
+    <<: *job-template
     docker:
-      - image: circleci/python:3.9
+      - image: cimg/python:3.10
 
-  test-py310:
-    <<: *test-template
+  job-py311:
+    <<: *job-template
     docker:
-      - image: circleci/python:3.10
+      - image: cimg/python:3.11
+
+  job-py312:
+    <<: *job-template
+    docker:
+      - image: cimg/python:3.12

@@ -1,9 +1,9 @@
 import os
 import shutil
 import sys
-from distutils.core import Extension, setup
 
 from Cython.Build import cythonize
+from setuptools import Extension, setup
 
 
 def walk(root, exclude=(), copy=()):

@@ -19,6 +19,12 @@ class Env(configs.BaseConfig):
                 os.path.join(os.path.dirname(__file__), '..', self.paths.root_folder))
         else:
             raise ValueError('Lack of `res/env/paths.json` file or `root_folder` value')
+        self.set_environ()
+
+    def set_environ(self):
+        if hasattr(self, 'environ'):
+            for key, value in self.environ.dict().items():
+                os.environ[key] = value
 
     def getdir(self, path):
         return os.path.abspath(os.path.join(self.paths.root_folder, path))
