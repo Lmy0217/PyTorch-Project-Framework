@@ -19,12 +19,6 @@ jobs:
     steps:
       - checkout
 
-      - restore_cache:
-          keys:
-          - v1-dependencies-{{ checksum "requirements.txt" }}
-          # fallback to using the latest cache if no exact match is found
-          - v1-dependencies-
-
       - run:
           name: install dependencies
           command: |
@@ -33,11 +27,6 @@ jobs:
             pip install --upgrade pip
             pip install -r requirements.txt > /dev/null
             pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu
-
-      - save_cache:
-          paths:
-            - ./venv
-          key: v1-dependencies-{{ checksum "requirements.txt" }}
 
       - run:
           name: run unittest
